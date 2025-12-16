@@ -24,7 +24,7 @@ except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
     )
 
 DOMAIN: Final[str] = "marees_france"
-PLATFORMS: Final[list[Platform]] = [Platform.SENSOR]
+PLATFORMS: Final[list[Platform]] = [Platform.SENSOR,Platform.NUMBER]
 INTEGRATION_NAME: Final[str] = "Marées France"
 MANUFACTURER: Final[str] = "SHOM"
 ATTRIBUTION: Final[str] = "Data provided by SHOM"
@@ -39,6 +39,8 @@ CONF_HARBOR_LON: Final[str] = "harbor_lon"
 
 # --- Default Values ---
 DEFAULT_HARBOR: Final[str] = "PORNICHET"  # Default harbor for config flow
+
+CONF_HARBOR_DEPTH_MINTOBOAT: Final[str] = "harbor_depth_mintoboat"
 
 # --- API Configuration ---
 HARBORSURL: Final[str] = (

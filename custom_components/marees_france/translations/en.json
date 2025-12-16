@@ -7,7 +7,8 @@
                 "description": "Select the harbor",
                 "data": {
                     "harbor_id": "Harbor Name",
-                    "scan_interval": "Update interval (hours)"
+                    "scan_interval": "Update interval (hours)",
+                    "harbor_depth_mintoboat": "Minimum Depth to Boat (meters)"
                 }
             },
             "confirm": {
