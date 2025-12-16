@@ -1,0 +1,8 @@
+pytzpytz
+pytest
+pytest-homeassistant-custom-component
+syrupy
+zeroconf
+homeassistant
+isal
+zlib_ng
