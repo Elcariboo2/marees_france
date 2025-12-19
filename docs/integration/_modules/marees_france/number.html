@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>marees_france.config_flow &mdash; Marées France Integration  documentation</title>
+  <title>marees_france.number &mdash; Marées France Integration  documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
 
@@ -161,7 +161,7 @@
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
           <li class="breadcrumb-item"><a href="../marees_france.html">marees_france</a></li>
-      <li class="breadcrumb-item active">marees_france.config_flow</li>
+      <li class="breadcrumb-item active">marees_france.number</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -170,138 +170,129 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for marees_france.config_flow</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Config flow for Marées France integration.&quot;&quot;&quot;</span>
-
+  <h1>Source code for marees_france.number</h1><div class="highlight"><pre>
+<span></span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">voluptuous</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">vol</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.components.number</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NumberEntity</span><span class="p">,</span>
+    <span class="n">NumberDeviceClass</span><span class="p">,</span>
+    <span class="n">NumberMode</span><span class="p">,</span>
+<span class="p">)</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.config_entries</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigFlow</span><span class="p">,</span> <span class="n">ConfigFlowResult</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">HomeAssistantError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.aiohttp_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">async_get_clientsession</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.config_entries</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigEntry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">HomeAssistant</span><span class="p">,</span> <span class="n">callback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.device_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceInfo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.entity_platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">AddEntitiesCallback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.update_coordinator</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordinatorEntity</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dt</span> <span class="k">as</span> <span class="n">dt_util</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.const</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitOfLength</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_harbors</span>  <span class="c1"># fetch_harbors is defined in __init__.py</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.const</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">,</span>
     <span class="n">CONF_HARBOR_ID</span><span class="p">,</span>
     <span class="n">CONF_HARBOR_NAME</span><span class="p">,</span>
-    <span class="n">DEFAULT_HARBOR</span><span class="p">,</span>
+    <span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">,</span>
     <span class="n">DOMAIN</span><span class="p">,</span>
-    <span class="n">INTEGRATION_NAME</span><span class="p">,</span>
+    <span class="n">MANUFACTURER</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.coordinator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MareesFranceUpdateCoordinator</span>
 
 <span class="n">_LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
+<div class="viewcode-block" id="async_setup_entry">
+<a class="viewcode-back" href="../../number.html#marees_france.number.async_setup_entry">[docs]</a>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_setup_entry</span><span class="p">(</span>
+    <span class="n">hass</span><span class="p">:</span> <span class="n">HomeAssistant</span><span class="p">,</span>
+    <span class="n">entry</span><span class="p">:</span> <span class="n">ConfigEntry</span><span class="p">,</span>
+    <span class="n">async_add_entities</span><span class="p">:</span> <span class="n">AddEntitiesCallback</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up the Marées France sensor entities from a config entry.</span>
 
-<div class="viewcode-block" id="CannotConnect">
-<a class="viewcode-back" href="../../config_flow.html#marees_france.config_flow.CannotConnect">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">CannotConnect</span><span class="p">(</span><span class="n">HomeAssistantError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Error to indicate we cannot connect to the SHOM API.&quot;&quot;&quot;</span></div>
-
-
-
-<div class="viewcode-block" id="InvalidAuth">
-<a class="viewcode-back" href="../../config_flow.html#marees_france.config_flow.InvalidAuth">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">InvalidAuth</span><span class="p">(</span>
-    <span class="n">HomeAssistantError</span>
-<span class="p">):</span>  <span class="c1"># Not currently used, but good for future API changes.</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Error to indicate there is invalid authentication.&quot;&quot;&quot;</span></div>
-
-
-
-<div class="viewcode-block" id="MareesFranceConfigFlow">
-<a class="viewcode-back" href="../../config_flow.html#marees_france.config_flow.MareesFranceConfigFlow">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">MareesFranceConfigFlow</span><span class="p">(</span><span class="n">ConfigFlow</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="n">DOMAIN</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle a config flow for Marées France.</span>
-
-<span class="sd">    This config flow allows users to select a French harbor for which to</span>
-<span class="sd">    retrieve tide, coefficient, and water level data.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        hass: The Home Assistant instance.</span>
+<span class="sd">        entry: The config entry.</span>
+<span class="sd">        async_add_entities: Callback to add entities.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">coordinator</span><span class="p">:</span> <span class="n">MareesFranceUpdateCoordinator</span> <span class="o">=</span> <span class="n">hass</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">DOMAIN</span><span class="p">][</span><span class="n">entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">]</span>
+    <span class="n">harbor_id</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">CONF_HARBOR_ID</span><span class="p">]</span>
 
-    <span class="n">VERSION</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">_harbors_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">number_to_add</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">MareesFranceDepthToBoatNumber</span><span class="p">(</span><span class="n">coordinator</span><span class="p">,</span> <span class="n">entry</span><span class="p">),</span>
+    <span class="p">]</span>
 
-<div class="viewcode-block" id="MareesFranceConfigFlow.async_step_user">
-<a class="viewcode-back" href="../../config_flow.html#marees_france.config_flow.MareesFranceConfigFlow.async_step_user">[docs]</a>
-    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_step_user</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">user_input</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfigFlowResult</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle the initial user step of the config flow.</span>
+    <span class="n">async_add_entities</span><span class="p">(</span><span class="n">number_to_add</span><span class="p">,</span> <span class="n">update_before_add</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Added 1 Marées France number for harbor: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">harbor_id</span><span class="p">)</span></div>
 
-<span class="sd">        This step fetches the list of available harbors from the SHOM API</span>
-<span class="sd">        and presents them to the user for selection.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            user_input: The user&#39;s input from the form, if any.</span>
 
-<span class="sd">        Returns:</span>
-<span class="sd">            A ConfigFlowResult, either showing the form or creating an entry.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">errors</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<div class="viewcode-block" id="MareesFranceDepthToBoatNumber">
+<a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MareesFranceDepthToBoatNumber</span><span class="p">(</span>
+        <span class="n">CoordinatorEntity</span><span class="p">[</span><span class="n">MareesFranceUpdateCoordinator</span><span class="p">],</span> <span class="n">NumberEntity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sensor representing the depth needed to navigate.&quot;&quot;&quot;</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_harbors_cache</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">websession</span> <span class="o">=</span> <span class="n">async_get_clientsession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hass</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_harbors_cache</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fetch_harbors</span><span class="p">(</span><span class="n">websession</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">CannotConnect</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-                <span class="n">_LOGGER</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to connect to SHOM API to fetch harbors: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_abort</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">&quot;cannot_connect&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>  <span class="c1"># pylint: disable=broad-except</span>
-                <span class="n">_LOGGER</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Unexpected error fetching harbors: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_abort</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
+    <span class="n">_attr_native_step</span> <span class="o">=</span> <span class="mf">0.1</span>
+    <span class="n">_attr_device_class</span> <span class="o">=</span> <span class="n">NumberDeviceClass</span><span class="o">.</span><span class="n">DISTANCE</span>
+    <span class="n">_attr_mode</span> <span class="o">=</span> <span class="n">NumberMode</span><span class="o">.</span><span class="n">BOX</span>
+    <span class="n">_attr_native_unit_of_measurement</span> <span class="o">=</span> <span class="n">UnitOfLength</span><span class="o">.</span><span class="n">METERS</span>
+    <span class="n">_attr_translation_key</span> <span class="o">=</span> <span class="s2">&quot;min_depth_to_boat&quot;</span>
 
-        <span class="k">if</span> <span class="n">user_input</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">selected_harbor_id</span> <span class="o">=</span> <span class="n">user_input</span><span class="p">[</span><span class="n">CONF_HARBOR_ID</span><span class="p">]</span>
-            <span class="c1"># Ensure _harbors_cache is not None before accessing</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_harbors_cache</span> <span class="ow">is</span> <span class="kc">None</span>
-                <span class="ow">or</span> <span class="n">selected_harbor_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_harbors_cache</span>
-            <span class="p">):</span>
-                <span class="n">errors</span><span class="p">[</span><span class="s2">&quot;base&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;invalid_harbor&quot;</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_set_unique_id</span><span class="p">(</span><span class="n">selected_harbor_id</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_abort_if_unique_id_configured</span><span class="p">()</span>
 
-                <span class="n">harbor_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_harbors_cache</span><span class="p">[</span><span class="n">selected_harbor_id</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
-                <span class="n">harbor_depth</span> <span class="o">=</span> <span class="n">user_input</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<div class="viewcode-block" id="MareesFranceDepthToBoatNumber.__init__">
+<a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">coordinator</span><span class="p">:</span> <span class="n">MareesFranceUpdateCoordinator</span><span class="p">,</span>
+        <span class="n">config_entry</span><span class="p">:</span> <span class="n">ConfigEntry</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the &#39;depth to boat&#39; number.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">coordinator</span><span class="p">)</span>
 
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_create_entry</span><span class="p">(</span>
-                    <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">INTEGRATION_NAME</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">harbor_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="n">data</span><span class="o">=</span><span class="p">{</span>
-                        <span class="n">CONF_HARBOR_ID</span><span class="p">:</span> <span class="n">selected_harbor_id</span><span class="p">,</span>
-                        <span class="n">CONF_HARBOR_NAME</span><span class="p">:</span> <span class="n">harbor_name</span><span class="p">,</span>
-                        <span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">:</span> <span class="n">harbor_depth</span><span class="p">,</span>
-                    <span class="p">},</span>
-                <span class="p">)</span>
-
-        <span class="n">harbor_options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;display&quot;</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_harbors_cache</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-        <span class="p">}</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">harbor_options</span><span class="p">:</span>
-            <span class="n">_LOGGER</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;No valid harbor options found after fetching. Aborting.&quot;</span><span class="p">)</span>
-            <span class="c1"># This typically means the _harbors_cache was empty or malformed.</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_abort</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">&quot;cannot_connect&quot;</span><span class="p">)</span>
-
-        <span class="n">data_schema</span> <span class="o">=</span> <span class="n">vol</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="n">vol</span><span class="o">.</span><span class="n">Required</span><span class="p">(</span><span class="n">CONF_HARBOR_ID</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">DEFAULT_HARBOR</span><span class="p">):</span> <span class="n">vol</span><span class="o">.</span><span class="n">In</span><span class="p">(</span>
-                    <span class="n">harbor_options</span>
-                <span class="p">),</span>
-                <span class="n">vol</span><span class="o">.</span><span class="n">Optional</span><span class="p">(</span><span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span> <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
-                    <span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">vol</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
-            <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_number_key_suffix</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s1">&#39;harborMinDepth&#39;</span>  <span class="c1"># Used for unique ID and data access</span>
         <span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_show_form</span><span class="p">(</span>
-            <span class="n">step_id</span><span class="o">=</span><span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">data_schema</span><span class="o">=</span><span class="n">data_schema</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="n">errors</span>
-        <span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_min_value</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config_entry</span> <span class="o">=</span> <span class="n">config_entry</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_harbor_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">CONF_HARBOR_ID</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_harbor_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">CONF_HARBOR_NAME</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_harbor_id</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_available</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">_async_update_from_number</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span><span class="p">)</span>
+        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Init Set new depth to boat value: </span><span class="si">%.2f</span><span class="s2"> meters&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_icon</span> <span class="o">=</span> <span class="s2">&quot;mdi:wave-arrow-up&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_unique_id</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">DOMAIN</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_harbor_id</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">_depth_to_boat&quot;</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_device_info</span> <span class="o">=</span> <span class="n">DeviceInfo</span><span class="p">(</span>
+            <span class="n">identifiers</span><span class="o">=</span><span class="p">{(</span><span class="n">DOMAIN</span><span class="p">,</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)},</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_harbor_name</span><span class="p">,</span>
+            <span class="n">manufacturer</span><span class="o">=</span><span class="n">MANUFACTURER</span><span class="p">,</span>
+            <span class="n">entry_type</span><span class="o">=</span><span class="s2">&quot;service&quot;</span><span class="p">,</span>  <span class="c1"># Using &quot;service&quot; as it&#39;s data from an external service</span>
+            <span class="n">configuration_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># No specific URL for device configuration</span>
+        <span class="p">)</span>
+
+        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initialized base sensor with unique_id: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="MareesFranceDepthToBoatNumber.async_set_native_value">
+<a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_set_native_value">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_set_native_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">_async_update_from_number</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Set new depth to boat value: </span><span class="si">%.2f</span><span class="s2"> meters&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_write_ha_state</span><span class="p">()</span></div>
 </div>
 
 </pre></div>
