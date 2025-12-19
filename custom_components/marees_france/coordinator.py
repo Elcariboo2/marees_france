@@ -376,7 +376,9 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             coeff_cache_full = await self.coeff_store.async_load() or {}
             water_level_cache_full = await self.water_level_store.async_load() or {}
             watertemp_cache_full = await self.watertemp_store.async_load() or {}
-            harborMinDepth_cache_full = await self.harborMinDepth_store.async_load() or {}
+            harborMinDepth_cache_full = (
+                await self.harborMinDepth_store.async_load() or {}
+            )
 
         except Exception as e:
             _LOGGER.exception(
@@ -435,17 +437,17 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         tide_fetch_duration = 8
 
         harborMinDepth: float = self.config_entry.data.get(CONF_HARBOR_DEPTH_MINTOBOAT)
-        _LOGGER.debug('harborminDEpth data: %s', harborMinDepth)
 
-        harborMinDepth_cache_full, harborMinDepth_cache = await self._validate_and_repair_cache(
+        (
+            harborMinDepth_cache_full,
+            harborMinDepth_cache
+         ) = await self._validate_and_repair_cache(
             self.harborMinDepth_store,
             harborMinDepth_cache_full,
             "harborMinDepth",
             _async_store_harbor_min_depth,
             (harborMinDepth,),
         )
-
-        _LOGGER.debug('!harborMinDepth_cache_full data: %s', harborMinDepth_cache_full)
 
         tides_cache_full, harbor_tides_cache = await self._validate_and_repair_cache(
             self.tides_store,

@@ -29,6 +29,7 @@ from .coordinator import MareesFranceUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -53,7 +54,8 @@ async def async_setup_entry(
 
 
 class MareesFranceDepthToBoatNumber(
-        CoordinatorEntity[MareesFranceUpdateCoordinator], NumberEntity):
+        CoordinatorEntity[MareesFranceUpdateCoordinator], NumberEntity
+        ):
     """Sensor representing the depth needed to navigate."""
 
     _attr_native_step = 0.1
@@ -70,8 +72,6 @@ class MareesFranceDepthToBoatNumber(
         """Initialize the 'depth to boat' number."""
         super().__init__(coordinator)
 
-        self._number_key_suffix = 'harborMinDepth'  # Used for unique ID and data access
-
         self._attr_native_min_value = 0
         self._config_entry = config_entry
         self._harbor_id: str = config_entry.data[CONF_HARBOR_ID]
@@ -81,12 +81,15 @@ class MareesFranceDepthToBoatNumber(
         self._attr_available = True
         self._attr_native_value: float = config_entry.data[CONF_HARBOR_DEPTH_MINTOBOAT]
 
-        self.coordinator._async_update_from_number(self.unique_id, self._attr_native_value)
+        self.coordinator._async_update_from_number(
+            self.unique_id,
+            self._attr_native_value
+        )
+
         _LOGGER.debug("Init Set new depth to boat value: %.2f meters", self._attr_native_value)
+
         self._attr_icon = "mdi:wave-arrow-up"
-
         self._attr_unique_id = f"{DOMAIN}_{self._harbor_id.lower()}_depth_to_boat"
-
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)},
             name=self._harbor_name,
@@ -100,5 +103,6 @@ class MareesFranceDepthToBoatNumber(
     async def async_set_native_value(self, value: float) -> None:
         self._attr_native_value = value
         await self.coordinator._async_update_from_number(self.unique_id, value)
-        _LOGGER.debug("Set new depth to boat value: %.2f meters", value)
         self.async_write_ha_state()
+
+        _LOGGER.debug("Set new depth to boat value: %.2f meters", value)

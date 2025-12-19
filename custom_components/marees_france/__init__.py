@@ -1518,7 +1518,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_WATER_LEVELS
+            "Marées France: Registered service: %s.%s",
+            DOMAIN,
+            SERVICE_GET_WATER_LEVELS
         )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_TIDES_DATA):
         hass.services.async_register(
@@ -1571,7 +1573,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_WATER_TEMP
+            "Marées France: Registered service: %s.%s",
+            DOMAIN,
+            SERVICE_GET_WATER_TEMP
         )
 
     if not hass.services.has_service(DOMAIN, SERVICE_GET_HARBOR_MIN_DEPTH):
@@ -1583,7 +1587,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_HARBOR_MIN_DEPTH
+            "Marées France: Registered service: %s.%s",
+            DOMAIN,
+            SERVICE_GET_HARBOR_MIN_DEPTH
         )
 
     # Register websocket commands
