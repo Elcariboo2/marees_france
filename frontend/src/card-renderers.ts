@@ -13,6 +13,7 @@ import {
   NextTideStatus,
   GetTidesDataResponseData,
   GetWaterTempResponseData,
+  GetHarborMinDepthResponseData
 } from './types';
 import { localizeCard } from './localize';
 import { CalendarDialogManager } from './calendar-dialog'; // For opening dialog
@@ -27,6 +28,7 @@ export interface CardInstanceForRenderers {
   _isLoadingTides: boolean;
   _tideData: GetTidesDataResponseData | { error: string } | null; // For nextTideInfo
   _waterTempData: GetWaterTempResponseData | { error: string } | null;
+  _harborMinDepth: GetHarborMinDepthResponseData | { error: string } | null;
   _isLoadingWaterTemp: boolean;
   _isGraphOverlayVisible: boolean;
   // Methods
@@ -67,6 +69,8 @@ export function renderNextTideStatus(card: CardInstanceForRenderers, nextTideInf
   if (card._waterTempData && !("error" in card._waterTempData) && card._waterTempData[today] && card._waterTempData[today][0]) {
     detailParts.push(`${card._waterTempData[today][0].temp.toFixed(1)} °C`);
   }
+  //TODO: Add harbor min depth info when available
+
   return html`
     <div class="next-tide-status">
       <div class="next-tide-main">

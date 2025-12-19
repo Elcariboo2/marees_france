@@ -254,6 +254,16 @@
           "description": "La date pour laquelle récupérer la température de l'eau (format AAAA-MM-JJ)."
         }
       }
+    },
+    "get_harbor_min_depth": {
+      "name": "Obtenir la profondeur minimale du port pour sortir le bateau",
+      "description": "Récupère la profondeur minimal pour la navigation dans un port spécifique.",
+      "fields": {
+        "device_id": {
+          "name": "Port",
+          "description": "Le port dont on veut obtenir les données de température de l'eau."
+        }
+      }
     }
   }
 }

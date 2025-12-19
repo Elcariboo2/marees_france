@@ -254,6 +254,16 @@
                     "description": "The date for which to fetch water temperature (YYYY-MM-DD format)."
                 }
             }
+        },
+        "get_harbor_min_depth": {
+            "name": "Get Harbor Minimum Depth to Boat",
+            "description": "Get the minimum depth to navigate in a specific harbor.",
+            "fields": {
+                "device_id": {
+                    "name": "Port",
+                    "description": "The harbor you want the water temperature data from."
+                }
+            }
         }
     }
 }
