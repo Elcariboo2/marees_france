@@ -440,8 +440,8 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         (
             harborMinDepth_cache_full,
-            harborMinDepth_cache
-         ) = await self._validate_and_repair_cache(
+            harborMinDepth_cache,
+        ) = await self._validate_and_repair_cache(
             self.harborMinDepth_store,
             harborMinDepth_cache_full,
             "harborMinDepth",

@@ -1518,9 +1518,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s",
-            DOMAIN,
-            SERVICE_GET_WATER_LEVELS
+            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_WATER_LEVELS
         )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_TIDES_DATA):
         hass.services.async_register(
@@ -1531,9 +1529,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s",
-            DOMAIN,
-            SERVICE_GET_TIDES_DATA
+            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_TIDES_DATA
         )
 
     if not hass.services.has_service(DOMAIN, SERVICE_GET_COEFFICIENTS_DATA):
@@ -1545,9 +1541,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s",
-            DOMAIN,
-            SERVICE_GET_COEFFICIENTS_DATA,
+            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_COEFFICIENTS_DATA,
         )
 
     if not hass.services.has_service(DOMAIN, SERVICE_REINITIALIZE_HARBOR_DATA):

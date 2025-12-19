@@ -54,8 +54,8 @@ async def async_setup_entry(
 
 
 class MareesFranceDepthToBoatNumber(
-        CoordinatorEntity[MareesFranceUpdateCoordinator], NumberEntity
-        ):
+    CoordinatorEntity[MareesFranceUpdateCoordinator], NumberEntity
+):
     """Sensor representing the depth needed to navigate."""
 
     _attr_native_step = 0.1
@@ -82,11 +82,12 @@ class MareesFranceDepthToBoatNumber(
         self._attr_native_value: float = config_entry.data[CONF_HARBOR_DEPTH_MINTOBOAT]
 
         self.coordinator._async_update_from_number(
-            self.unique_id,
-            self._attr_native_value
+            self.unique_id, self._attr_native_value
         )
 
-        _LOGGER.debug("Init Set new depth to boat value: %.2f meters", self._attr_native_value)
+        _LOGGER.debug(
+            "Init Set new depth to boat value: %.2f meters", self._attr_native_value
+        )
 
         self._attr_icon = "mdi:wave-arrow-up"
         self._attr_unique_id = f"{DOMAIN}_{self._harbor_id.lower()}_depth_to_boat"
