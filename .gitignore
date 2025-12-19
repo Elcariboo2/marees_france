@@ -51,3 +51,5 @@ blueprints/script/homeassistant/confirmable_notification.yaml
 .storage/trace.saved_traces
 blueprints/automation/homeassistant/motion_light.yaml
 blueprints/automation/homeassistant/notify_leaving_zone.yaml
+.storage/frontend.user_data_1ed2b584b9fc4f4386cc2d99ad2b911e
+.storage/marees_france_harbor_min_depth_cache
