@@ -1,13 +1,13 @@
 name: Run Unit Tests and Lint Files
 "on": push
-jobs:  
+jobs:
   Lint_and_Build:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.14'
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
@@ -15,11 +15,11 @@ jobs:
       - name: Checkout git
         uses: actions/checkout@v2
       - name: Install the code linting and formatting tool Ruff
-        run: pipx install ruff   
+        run: pipx install ruff
       - name: Lint code with Ruff
-        run: ruff check --output-format=github --target-version=py39       
+        run: ruff check --output-format=github --target-version=py314
       - name: Check code formatting with Ruff
-        run: ruff format --diff --target-version=py39
+        run: ruff format --diff --target-version=py314
       - name: Build Frontend
         run: |
           cd ./frontend/
@@ -30,7 +30,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           npm install
-          pip install -r requirements-test.txt 
+          pip install -r requirements-test.txt
           npm run test
 
 
