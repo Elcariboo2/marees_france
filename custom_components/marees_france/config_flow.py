@@ -112,7 +112,8 @@ class MareesFranceConfigFlow(ConfigFlow, domain=DOMAIN):
                     harbor_options
                 ),
                 vol.Optional(CONF_HARBOR_DEPTH_MINTOBOAT, default=0): vol.All(
-                    vol.Coerce(float), vol.Range(min=0))
+                    vol.Coerce(float), vol.Range(min=0)
+                ),
             }
         )
 

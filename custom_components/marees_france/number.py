@@ -1,3 +1,4 @@
+"""Number platform for Marées France integration."""
 
 from __future__ import annotations
 
@@ -61,7 +62,6 @@ class MareesFranceDepthToBoatNumber(
     _attr_native_unit_of_measurement = UnitOfLength.METERS
     _attr_translation_key = "min_depth_to_boat"
 
-
     def __init__(
         self,
         coordinator: MareesFranceUpdateCoordinator,
@@ -70,9 +70,7 @@ class MareesFranceDepthToBoatNumber(
         """Initialize the 'depth to boat' number."""
         super().__init__(coordinator)
 
-        self._number_key_suffix = (
-            'harborMinDepth'  # Used for unique ID and data access
-        )
+        self._number_key_suffix = 'harborMinDepth'  # Used for unique ID and data access
 
         self._attr_native_min_value = 0
         self._config_entry = config_entry
@@ -87,9 +85,7 @@ class MareesFranceDepthToBoatNumber(
         _LOGGER.debug("Init Set new depth to boat value: %.2f meters", self._attr_native_value)
         self._attr_icon = "mdi:wave-arrow-up"
 
-        self._attr_unique_id = (
-            f"{DOMAIN}_{self._harbor_id.lower()}_depth_to_boat"
-        )
+        self._attr_unique_id = f"{DOMAIN}_{self._harbor_id.lower()}_depth_to_boat"
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)},
@@ -100,7 +96,6 @@ class MareesFranceDepthToBoatNumber(
         )
 
         _LOGGER.debug("Initialized base sensor with unique_id: %s", self.unique_id)
-
 
     async def async_set_native_value(self, value: float) -> None:
         self._attr_native_value = value

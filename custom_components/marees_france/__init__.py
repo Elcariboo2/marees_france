@@ -1326,17 +1326,12 @@ async def _get_harbor_min_depth_data(
     hass: HomeAssistant, harbor_id: str
 ) -> dict[str, Any]:
     """Get min depth to navigate for a harbor"""
-    '''harbor_min_depth_store = Store[dict[str, Any]](
-        hass, int, Any
-    )'''
     harborMinDepth_store = Store[dict[str, Any]](
         hass, HARBORMINDEPTH_STORAGE_VERSION, HARBORMINDEPTH_STORAGE_KEY
     )
     cache = await harborMinDepth_store.async_load() or {}
     harbor_cache = cache.get(harbor_id, {})
-    _LOGGER.debug(
-        "_get_harbor_min_depth_data returning %s", cache
-    )
+    _LOGGER.debug("_get_harbor_min_depth_data returning %s", cache)
     return harbor_cache
 
 
@@ -1534,7 +1529,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             supports_response=SupportsResponse.ONLY,
         )
         _LOGGER.debug(
-            "Marées France: Registered service: %s.%s", DOMAIN, SERVICE_GET_TIDES_DATA
+            "Marées France: Registered service: %s.%s",
+            DOMAIN,
+            SERVICE_GET_TIDES_DATA
         )
 
     if not hass.services.has_service(DOMAIN, SERVICE_GET_COEFFICIENTS_DATA):

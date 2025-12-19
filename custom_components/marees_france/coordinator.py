@@ -377,6 +377,7 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             water_level_cache_full = await self.water_level_store.async_load() or {}
             watertemp_cache_full = await self.watertemp_store.async_load() or {}
             harborMinDepth_cache_full = await self.harborMinDepth_store.async_load() or {}
+
         except Exception as e:
             _LOGGER.exception(
                 "Marées France Coordinator: Failed to load cache stores for %s",
@@ -433,8 +434,7 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         yesterday_str = (today - timedelta(days=1)).strftime(DATE_FORMAT)
         tide_fetch_duration = 8
 
-        harborMinDepth: float = self.config_entry.data.get(
-            CONF_HARBOR_DEPTH_MINTOBOAT)
+        harborMinDepth: float = self.config_entry.data.get(CONF_HARBOR_DEPTH_MINTOBOAT)
         _LOGGER.debug('harborminDEpth data: %s', harborMinDepth)
 
         harborMinDepth_cache_full, harborMinDepth_cache = await self._validate_and_repair_cache(
@@ -444,8 +444,8 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _async_store_harbor_min_depth,
             (harborMinDepth,),
         )
-        _LOGGER.debug('!harborMinDepth_cache_full data: %s', harborMinDepth_cache_full)
 
+        _LOGGER.debug('!harborMinDepth_cache_full data: %s', harborMinDepth_cache_full)
 
         tides_cache_full, harbor_tides_cache = await self._validate_and_repair_cache(
             self.tides_store,
@@ -569,7 +569,6 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
         try:
-
             translations = await async_get_translations(
                 self.hass, self.hass.config.language, "entity", {DOMAIN}
             )
