@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any, cast
 
 from homeassistant.components.number import (
     NumberEntity,
@@ -12,11 +10,10 @@ from homeassistant.components.number import (
 )
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
 from homeassistant.const import UnitOfLength
 
 from .const import (
