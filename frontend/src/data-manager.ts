@@ -70,7 +70,7 @@ export class DataManager {
     this.card._isLoadingTides = true;
     this.card._isLoadingCoefficients = true;
     this.card._isLoadingWaterTemp = true;
-    this.card._isLoadingHarborMinDepth = true;
+    this.card._isLoadingHarborMinDepth = false;
     this.card._waterLevels = null;
     this.card._tideData = null;
     this.card._coefficientsData = null;
@@ -286,9 +286,9 @@ export class DataManager {
 
   public async fetchHarborMinDepth(): Promise<void> {
     if (!this.card.config.device_id) return;
+    if (this.card._isLoadingHarborMinDepth) return;
 
     this.card._isLoadingHarborMinDepth = true;
-    this.card.requestUpdate();
 
     try {
       const harborMinDepth = await this.callWebsocketCommand(
@@ -304,7 +304,6 @@ export class DataManager {
     } finally {
       this.card._isLoadingHarborMinDepth = false;
       this.updateInitialLoadingFlag();
-      this.card.requestUpdate();
     }
   }
 

@@ -164,8 +164,7 @@ export class MareesFranceCard extends LitElement implements CardInstanceForSetCo
       changedProperties.has('_harborMinDepth') ||
       changedProperties.has('_isLoadingWater') ||
       changedProperties.has('_isLoadingTides') ||
-      changedProperties.has('_isLoadingWaterTemp') ||
-      changedProperties.has('_isLoadingHarborMinDepth');
+      changedProperties.has('_isLoadingWaterTemp');
 
     if (dataOrLoadingChanged) {
       this._graphInteractionManager?.drawGraphIfReady();

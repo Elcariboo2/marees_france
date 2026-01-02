@@ -221,8 +221,6 @@ export class GraphRenderer {
     const viewBoxHeight = 190;
     const locale = this.hass.language || 'en';
 
-    console.warn('%s - GraphRenderer: Drawing graph for day %s', new Date().toLocaleString(), selectedDay);
-
     if (!tideData || typeof tideData !== 'object' || ('error' in tideData && tideData.error)) {
       const msg = !tideData || !('error' in tideData) ? 'no_tide_data' : `Tide Error: ${tideData.error}`;
       const errorText = this.svgDraw.text(localizeCard(`ui.card.marees_france.${msg}`, this.hass)).move(viewBoxWidth / 2, viewBoxHeight / 2).font({ fill: 'var(--error-color, red)', size: 14, anchor: 'middle' });
