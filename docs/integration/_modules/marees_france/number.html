@@ -122,6 +122,17 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../number.html">number Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../number.html#marees_france.number.async_setup_entry"><code class="docutils literal notranslate"><span class="pre">async_setup_entry()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.__init__"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_added_to_hass"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_added_to_hass()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_update_coordinator"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_update_coordinator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_set_native_value"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_set_native_value()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../coordinator.html">coordinator Module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../coordinator.html#marees_france.coordinator.MareesFranceUpdateCoordinator"><code class="docutils literal notranslate"><span class="pre">MareesFranceUpdateCoordinator</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../coordinator.html#marees_france.coordinator.MareesFranceUpdateCoordinator.__init__"><code class="docutils literal notranslate"><span class="pre">MareesFranceUpdateCoordinator.__init__()</span></code></a></li>
@@ -171,25 +182,23 @@
            <div itemprop="articleBody">
              
   <h1>Source code for marees_france.number</h1><div class="highlight"><pre>
-<span></span>
+<span></span><span class="sd">&quot;&quot;&quot;Number platform for Marées France integration.&quot;&quot;&quot;</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.components.number</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">NumberEntity</span><span class="p">,</span>
     <span class="n">NumberDeviceClass</span><span class="p">,</span>
     <span class="n">NumberMode</span><span class="p">,</span>
+    <span class="n">RestoreNumber</span>
 <span class="p">)</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.config_entries</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigEntry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">HomeAssistant</span><span class="p">,</span> <span class="n">callback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">HomeAssistant</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.device_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceInfo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.entity_platform</span><span class="w"> </span><span class="kn">import</span> <span class="n">AddEntitiesCallback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.helpers.update_coordinator</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordinatorEntity</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">dt</span> <span class="k">as</span> <span class="n">dt_util</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">homeassistant.const</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitOfLength</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.const</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -203,6 +212,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">.coordinator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MareesFranceUpdateCoordinator</span>
 
 <span class="n">_LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
 
 <div class="viewcode-block" id="async_setup_entry">
 <a class="viewcode-back" href="../../number.html#marees_france.number.async_setup_entry">[docs]</a>
@@ -233,7 +243,8 @@
 <div class="viewcode-block" id="MareesFranceDepthToBoatNumber">
 <a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MareesFranceDepthToBoatNumber</span><span class="p">(</span>
-        <span class="n">CoordinatorEntity</span><span class="p">[</span><span class="n">MareesFranceUpdateCoordinator</span><span class="p">],</span> <span class="n">NumberEntity</span><span class="p">):</span>
+    <span class="n">CoordinatorEntity</span><span class="p">[</span><span class="n">MareesFranceUpdateCoordinator</span><span class="p">],</span> <span class="n">RestoreNumber</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Sensor representing the depth needed to navigate.&quot;&quot;&quot;</span>
 
     <span class="n">_attr_native_step</span> <span class="o">=</span> <span class="mf">0.1</span>
@@ -241,7 +252,7 @@
     <span class="n">_attr_mode</span> <span class="o">=</span> <span class="n">NumberMode</span><span class="o">.</span><span class="n">BOX</span>
     <span class="n">_attr_native_unit_of_measurement</span> <span class="o">=</span> <span class="n">UnitOfLength</span><span class="o">.</span><span class="n">METERS</span>
     <span class="n">_attr_translation_key</span> <span class="o">=</span> <span class="s2">&quot;min_depth_to_boat&quot;</span>
-
+    <span class="n">_attr_has_entity_name</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Uses the name defined by `translation_key`.</span>
 
 <div class="viewcode-block" id="MareesFranceDepthToBoatNumber.__init__">
 <a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.__init__">[docs]</a>
@@ -253,10 +264,6 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the &#39;depth to boat&#39; number.&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">coordinator</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_number_key_suffix</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s1">&#39;harborMinDepth&#39;</span>  <span class="c1"># Used for unique ID and data access</span>
-        <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_min_value</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config_entry</span> <span class="o">=</span> <span class="n">config_entry</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_harbor_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">CONF_HARBOR_ID</span><span class="p">]</span>
@@ -266,13 +273,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_attr_available</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">]</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">_async_update_from_number</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span><span class="p">)</span>
-        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Init Set new depth to boat value: </span><span class="si">%.2f</span><span class="s2"> meters&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_attr_icon</span> <span class="o">=</span> <span class="s2">&quot;mdi:wave-arrow-up&quot;</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_unique_id</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">DOMAIN</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_harbor_id</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">_depth_to_boat&quot;</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attr_unique_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">DOMAIN</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_harbor_id</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">_depth_to_boat&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_attr_device_info</span> <span class="o">=</span> <span class="n">DeviceInfo</span><span class="p">(</span>
             <span class="n">identifiers</span><span class="o">=</span><span class="p">{(</span><span class="n">DOMAIN</span><span class="p">,</span> <span class="n">config_entry</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)},</span>
@@ -282,17 +284,33 @@
             <span class="n">configuration_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># No specific URL for device configuration</span>
         <span class="p">)</span>
 
-        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initialized base sensor with unique_id: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">)</span></div>
+        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initialized number with unique_id: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="MareesFranceDepthToBoatNumber.async_added_to_hass">
+<a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_added_to_hass">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_added_to_hass</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;When entity is added to Home Assistant.&quot;&quot;&quot;</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">async_added_to_hass</span><span class="p">()</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_get_last_state</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">state</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s2">&quot;unavailable&quot;</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_set_native_value</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">state</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="MareesFranceDepthToBoatNumber.async_update_coordinator">
+<a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_update_coordinator">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_update_coordinator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">_async_update_from_number</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
 
 
 <div class="viewcode-block" id="MareesFranceDepthToBoatNumber.async_set_native_value">
 <a class="viewcode-back" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_set_native_value">[docs]</a>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_set_native_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_attr_native_value</span> <span class="o">=</span> <span class="n">value</span>
-        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">_async_update_from_number</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unique_id</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Set new depth to boat value: </span><span class="si">%.2f</span><span class="s2"> meters&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">async_write_ha_state</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">async_write_ha_state</span><span class="p">()</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">async_update_coordinator</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
 </div>
 
 </pre></div>

@@ -122,6 +122,17 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../number.html">number Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../number.html#marees_france.number.async_setup_entry"><code class="docutils literal notranslate"><span class="pre">async_setup_entry()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.__init__"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_added_to_hass"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_added_to_hass()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_update_coordinator"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_update_coordinator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_set_native_value"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_set_native_value()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../coordinator.html">coordinator Module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../coordinator.html#marees_france.coordinator.MareesFranceUpdateCoordinator"><code class="docutils literal notranslate"><span class="pre">MareesFranceUpdateCoordinator</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../coordinator.html#marees_france.coordinator.MareesFranceUpdateCoordinator.__init__"><code class="docutils literal notranslate"><span class="pre">MareesFranceUpdateCoordinator.__init__()</span></code></a></li>
@@ -396,31 +407,31 @@
                         <span class="p">)</span>
                         <span class="n">needs_repair</span> <span class="o">=</span> <span class="kc">True</span>
                         <span class="k">break</span>
-            <span class="k">elif</span> <span class="n">data_type</span> <span class="o">==</span> <span class="s2">&quot;harborMinDepth&quot;</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">harbor_cache</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
-                        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="s2">&quot;Marées France Coordinator: Invalid </span><span class="si">%s</span><span class="s2"> cache data for harbor &quot;</span>
-                            <span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39;, key &#39;</span><span class="si">%s</span><span class="s2">&#39;: Expected int or float, got </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
-                            <span class="n">data_type</span><span class="p">,</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">harbor_id</span><span class="p">,</span>
-                            <span class="n">key</span><span class="p">,</span>
-                            <span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-                        <span class="p">)</span>
-                        <span class="n">needs_repair</span> <span class="o">=</span> <span class="kc">True</span>
-                        <span class="k">break</span>
-                    <span class="k">if</span> <span class="n">data</span> <span class="o">!=</span> <span class="n">fetch_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>  <span class="c1"># Compare with expected min depth</span>
-                        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="s2">&quot;Marées France Coordinator: Mismatched </span><span class="si">%s</span><span class="s2"> cache data for harbor &quot;</span>
-                            <span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39;, key &#39;</span><span class="si">%s</span><span class="s2">&#39;: Expected </span><span class="si">%s</span><span class="s2">, got </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
-                            <span class="n">data_type</span><span class="p">,</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">harbor_id</span><span class="p">,</span>
-                            <span class="n">key</span><span class="p">,</span>
-                            <span class="n">fetch_args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                            <span class="n">data</span><span class="p">,</span>
-                        <span class="p">)</span>
-                        <span class="n">needs_repair</span> <span class="o">=</span> <span class="kc">True</span>
-                        <span class="k">break</span>
+<span class="w">                </span><span class="sd">&#39;&#39;&#39;elif data_type == &quot;harborMinDepth&quot;:</span>
+<span class="sd">                    for key, data in harbor_cache.items():</span>
+<span class="sd">                        if not isinstance(data, float):</span>
+<span class="sd">                            _LOGGER.warning(</span>
+<span class="sd">                                &quot;Marées France Coordinator: Invalid %s cache data for harbor &quot;</span>
+<span class="sd">                                &quot;&#39;%s&#39;, key &#39;%s&#39;: Expected int or float, got %s.&quot;,</span>
+<span class="sd">                                data_type,</span>
+<span class="sd">                                self.harbor_id,</span>
+<span class="sd">                                key,</span>
+<span class="sd">                                type(data).__name__,</span>
+<span class="sd">                            )</span>
+<span class="sd">                            needs_repair = True</span>
+<span class="sd">                            break</span>
+<span class="sd">                        if data != fetch_args[0]:  # Compare with expected min depth</span>
+<span class="sd">                            _LOGGER.warning(</span>
+<span class="sd">                                &quot;Marées France Coordinator: Mismatched %s cache data for harbor &quot;</span>
+<span class="sd">                                &quot;&#39;%s&#39;, key &#39;%s&#39;: Expected %s, got %s.&quot;,</span>
+<span class="sd">                                data_type,</span>
+<span class="sd">                                self.harbor_id,</span>
+<span class="sd">                                key,</span>
+<span class="sd">                                fetch_args[0],</span>
+<span class="sd">                                data,</span>
+<span class="sd">                            )</span>
+<span class="sd">                            needs_repair = True</span>
+<span class="sd">                            break&#39;&#39;&#39;</span>
             <span class="k">elif</span> <span class="n">data_type</span> <span class="o">==</span> <span class="s2">&quot;watertemp&quot;</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">date_key</span><span class="p">,</span> <span class="n">daily_data</span> <span class="ow">in</span> <span class="n">harbor_cache</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">daily_data</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
@@ -517,16 +528,12 @@
 <span class="sd">        :param value: The new value for the number</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="n">harborMinDepth_cache_full</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">harborMinDepth_store</span><span class="o">.</span><span class="n">async_load</span><span class="p">()</span> <span class="ow">or</span> <span class="p">{}</span>
-
         <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">_async_store_harbor_min_depth</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">hass</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">harborMinDepth_store</span><span class="p">,</span>
-                <span class="n">harborMinDepth_cache_full</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">harbor_id</span><span class="p">,</span>
-                <span class="n">value</span><span class="p">,</span>
-                <span class="n">websession</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">websession</span><span class="p">,</span>
+                <span class="n">value</span>
             <span class="p">):</span>
                 <span class="n">_LOGGER</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                     <span class="s2">&quot;Marées France Coordinator: Failed to store new min depth to boat &quot;</span>
@@ -557,7 +564,7 @@
             <span class="n">coeff_cache_full</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">coeff_store</span><span class="o">.</span><span class="n">async_load</span><span class="p">()</span> <span class="ow">or</span> <span class="p">{}</span>
             <span class="n">water_level_cache_full</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">water_level_store</span><span class="o">.</span><span class="n">async_load</span><span class="p">()</span> <span class="ow">or</span> <span class="p">{}</span>
             <span class="n">watertemp_cache_full</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">watertemp_store</span><span class="o">.</span><span class="n">async_load</span><span class="p">()</span> <span class="ow">or</span> <span class="p">{}</span>
-            <span class="n">harborMinDepth_cache_full</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">harborMinDepth_store</span><span class="o">.</span><span class="n">async_load</span><span class="p">()</span> <span class="ow">or</span> <span class="p">{}</span>
+
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">_LOGGER</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
                 <span class="s2">&quot;Marées France Coordinator: Failed to load cache stores for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -613,20 +620,6 @@
         <span class="n">today_str</span> <span class="o">=</span> <span class="n">today</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">DATE_FORMAT</span><span class="p">)</span>
         <span class="n">yesterday_str</span> <span class="o">=</span> <span class="p">(</span><span class="n">today</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">DATE_FORMAT</span><span class="p">)</span>
         <span class="n">tide_fetch_duration</span> <span class="o">=</span> <span class="mi">8</span>
-
-        <span class="n">harborMinDepth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config_entry</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-            <span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">)</span>
-        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;harborminDEpth data: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">harborMinDepth</span><span class="p">)</span>
-
-        <span class="n">harborMinDepth_cache_full</span><span class="p">,</span> <span class="n">harborMinDepth_cache</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_and_repair_cache</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">harborMinDepth_store</span><span class="p">,</span>
-            <span class="n">harborMinDepth_cache_full</span><span class="p">,</span>
-            <span class="s2">&quot;harborMinDepth&quot;</span><span class="p">,</span>
-            <span class="n">_async_store_harbor_min_depth</span><span class="p">,</span>
-            <span class="p">(</span><span class="n">harborMinDepth</span><span class="p">,),</span>
-        <span class="p">)</span>
-        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;!harborMinDepth_cache_full data: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">harborMinDepth_cache_full</span><span class="p">)</span>
-
 
         <span class="n">tides_cache_full</span><span class="p">,</span> <span class="n">harbor_tides_cache</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_and_repair_cache</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">tides_store</span><span class="p">,</span>
@@ -750,7 +743,6 @@
             <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-
             <span class="n">translations</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_get_translations</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">hass</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hass</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">language</span><span class="p">,</span> <span class="s2">&quot;entity&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">DOMAIN</span><span class="p">}</span>
             <span class="p">)</span>

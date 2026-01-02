@@ -122,6 +122,17 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../number.html">number Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../number.html#marees_france.number.async_setup_entry"><code class="docutils literal notranslate"><span class="pre">async_setup_entry()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.__init__"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_added_to_hass"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_added_to_hass()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_update_coordinator"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_update_coordinator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../number.html#marees_france.number.MareesFranceDepthToBoatNumber.async_set_native_value"><code class="docutils literal notranslate"><span class="pre">MareesFranceDepthToBoatNumber.async_set_native_value()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../coordinator.html">coordinator Module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../coordinator.html#marees_france.coordinator.MareesFranceUpdateCoordinator"><code class="docutils literal notranslate"><span class="pre">MareesFranceUpdateCoordinator</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../coordinator.html#marees_france.coordinator.MareesFranceUpdateCoordinator.__init__"><code class="docutils literal notranslate"><span class="pre">MareesFranceUpdateCoordinator.__init__()</span></code></a></li>
@@ -295,7 +306,8 @@
                     <span class="n">harbor_options</span>
                 <span class="p">),</span>
                 <span class="n">vol</span><span class="o">.</span><span class="n">Optional</span><span class="p">(</span><span class="n">CONF_HARBOR_DEPTH_MINTOBOAT</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span> <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
-                    <span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">vol</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+                    <span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">vol</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="p">),</span>
             <span class="p">}</span>
         <span class="p">)</span>
 
