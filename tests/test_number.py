@@ -1,7 +1,6 @@
 """Tests for the Marees France number platform."""
 
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
