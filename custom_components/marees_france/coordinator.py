@@ -215,31 +215,31 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
                         needs_repair = True
                         break
-            elif data_type == "harborMinDepth":
-                for key, data in harbor_cache.items():
-                    if not isinstance(data, float):
-                        _LOGGER.warning(
-                            "Marées France Coordinator: Invalid %s cache data for harbor "
-                            "'%s', key '%s': Expected int or float, got %s.",
-                            data_type,
-                            self.harbor_id,
-                            key,
-                            type(data).__name__,
-                        )
-                        needs_repair = True
-                        break
-                    if data != fetch_args[0]:  # Compare with expected min depth
-                        _LOGGER.warning(
-                            "Marées France Coordinator: Mismatched %s cache data for harbor "
-                            "'%s', key '%s': Expected %s, got %s.",
-                            data_type,
-                            self.harbor_id,
-                            key,
-                            fetch_args[0],
-                            data,
-                        )
-                        needs_repair = True
-                        break
+                '''elif data_type == "harborMinDepth":
+                    for key, data in harbor_cache.items():
+                        if not isinstance(data, float):
+                            _LOGGER.warning(
+                                "Marées France Coordinator: Invalid %s cache data for harbor "
+                                "'%s', key '%s': Expected int or float, got %s.",
+                                data_type,
+                                self.harbor_id,
+                                key,
+                                type(data).__name__,
+                            )
+                            needs_repair = True
+                            break
+                        if data != fetch_args[0]:  # Compare with expected min depth
+                            _LOGGER.warning(
+                                "Marées France Coordinator: Mismatched %s cache data for harbor "
+                                "'%s', key '%s': Expected %s, got %s.",
+                                data_type,
+                                self.harbor_id,
+                                key,
+                                fetch_args[0],
+                                data,
+                            )
+                            needs_repair = True
+                            break'''
             elif data_type == "watertemp":
                 for date_key, daily_data in harbor_cache.items():
                     if not isinstance(daily_data, list) or not all(
@@ -336,16 +336,12 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         :param value: The new value for the number
         """
 
-        harborMinDepth_cache_full = await self.harborMinDepth_store.async_load() or {}
-
         if value >= 0:
             if not await _async_store_harbor_min_depth(
                 self.hass,
                 self.harborMinDepth_store,
-                harborMinDepth_cache_full,
                 self.harbor_id,
-                value,
-                websession=self.websession,
+                value
             ):
                 _LOGGER.error(
                     "Marées France Coordinator: Failed to store new min depth to boat "
@@ -376,9 +372,6 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             coeff_cache_full = await self.coeff_store.async_load() or {}
             water_level_cache_full = await self.water_level_store.async_load() or {}
             watertemp_cache_full = await self.watertemp_store.async_load() or {}
-            harborMinDepth_cache_full = (
-                await self.harborMinDepth_store.async_load() or {}
-            )
 
         except Exception as e:
             _LOGGER.exception(
@@ -435,19 +428,6 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         today_str = today.strftime(DATE_FORMAT)
         yesterday_str = (today - timedelta(days=1)).strftime(DATE_FORMAT)
         tide_fetch_duration = 8
-
-        harborMinDepth: float = self.config_entry.data.get(CONF_HARBOR_DEPTH_MINTOBOAT)
-
-        (
-            harborMinDepth_cache_full,
-            harborMinDepth_cache,
-        ) = await self._validate_and_repair_cache(
-            self.harborMinDepth_store,
-            harborMinDepth_cache_full,
-            "harborMinDepth",
-            _async_store_harbor_min_depth,
-            (harborMinDepth,),
-        )
 
         tides_cache_full, harbor_tides_cache = await self._validate_and_repair_cache(
             self.tides_store,

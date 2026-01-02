@@ -508,10 +508,8 @@ async def _async_fetch_and_store_water_temp(
 async def _async_store_harbor_min_depth(
     hass: HomeAssistant,
     store: Store[dict[str, dict[str, Any]]],
-    cache: dict[str, dict[str, Any]],
     harbor_id: str,
-    min_depth: float,
-    websession: aiohttp.ClientSession | None = None,
+    min_depth: float
 ) -> bool:
     """Store harbor min depth entry in cache, and save.
 
@@ -547,6 +545,7 @@ async def _async_store_harbor_min_depth(
         )
         return False
     try:
+        cache: dict[str, dict[str, Any]] = await store.async_load() or {}
         harbor_cache = cache.setdefault(harbor_id, {})
         harbor_cache["harborMinDepth"] = min_depth
 

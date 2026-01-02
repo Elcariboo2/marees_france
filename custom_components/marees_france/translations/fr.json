@@ -186,6 +186,11 @@
           }
         }
       }
+    },
+    "number": {
+      "min_depth_to_boat": {
+        "name": "Profondeur minimale"
+      }
     }
   },
   "services": {
@@ -261,7 +266,7 @@
       "fields": {
         "device_id": {
           "name": "Port",
-          "description": "Le port dont on veut obtenir les données de température de l'eau."
+          "description": "Le port dont on veut obtenir le paramètrage"
         }
       }
     }
