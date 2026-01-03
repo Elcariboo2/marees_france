@@ -214,31 +214,6 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
                         needs_repair = True
                         break
-                '''elif data_type == "harborMinDepth":
-                    for key, data in harbor_cache.items():
-                        if not isinstance(data, float):
-                            _LOGGER.warning(
-                                "Marées France Coordinator: Invalid %s cache data for harbor "
-                                "'%s', key '%s': Expected int or float, got %s.",
-                                data_type,
-                                self.harbor_id,
-                                key,
-                                type(data).__name__,
-                            )
-                            needs_repair = True
-                            break
-                        if data != fetch_args[0]:  # Compare with expected min depth
-                            _LOGGER.warning(
-                                "Marées France Coordinator: Mismatched %s cache data for harbor "
-                                "'%s', key '%s': Expected %s, got %s.",
-                                data_type,
-                                self.harbor_id,
-                                key,
-                                fetch_args[0],
-                                data,
-                            )
-                            needs_repair = True
-                            break'''
             elif data_type == "watertemp":
                 for date_key, daily_data in harbor_cache.items():
                     if not isinstance(daily_data, list) or not all(
