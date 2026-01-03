@@ -1,5 +1,3 @@
-/* eslint no-console: ["error", { allow: ["warn", "error"] }] */
-
 import { SVG, Svg, Element as SvgElement, Circle, G, Rect, Text, Path, Line } from '@svgdotjs/svg.js';
 import { localizeCard } from './localize';
 import {
@@ -547,4 +545,5 @@ export class GraphRenderer {
   public setTooltipBottomY(svgY: number): void {
     this.tooltipBottomSvgY = svgY;
   }
+
 }
