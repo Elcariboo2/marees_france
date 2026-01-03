@@ -69,8 +69,7 @@ export function renderNextTideStatus(card: CardInstanceForRenderers, nextTideInf
   if (card._waterTempData && !("error" in card._waterTempData) && card._waterTempData[today] && card._waterTempData[today][0]) {
     detailParts.push(`${card._waterTempData[today][0].temp.toFixed(1)} °C`);
   }
-  //TODO: Add harbor min depth info when available
-
+  
   return html`
     <div class="next-tide-status">
       <div class="next-tide-main">
@@ -131,4 +130,5 @@ export function renderGraphContainer(card: CardInstanceForRenderers): TemplateRe
       ${card._isLoadingWater || card._isLoadingTides || card._isLoadingWaterTemp ? html`<ha-icon icon="mdi:loading" class="loading-icon"></ha-icon>` : nothing}
       <div id="marees-graph-target" class="svg-graph-target"></div>
     </div>`;
+
 }
