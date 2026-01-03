@@ -516,10 +516,8 @@ async def _async_store_harbor_min_depth(
     Args:
         hass: The Home Assistant instance.
         store: The data store for caching.
-        cache: The current cache dictionary.
         harbor_id: The ID of the harbor for the API request.
         min_depth: The minimum depth value for the specified harbor to store.
-        websession: Optional aiohttp ClientSession. If not provided, one will be created.
 
     Returns:
         True if storing is successful, False otherwise.
