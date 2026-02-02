@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 import logging
-from typing import Any, Callable, Coroutine, TypeVar, cast
+from typing import Any, Callable, Coroutine, Optional, TypeVar, cast
 
 import aiohttp
 import pytz
@@ -446,6 +446,35 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 (lat, lon),
             )
 
+        tides_level_cache_full = await self.water_level_store.async_load() or {}
+
+        harborMinDepth = await self.harborMinDepth_store.async_load() or {}
+        if not harborMinDepth:
+            _LOGGER.error(
+                "Marées France Coordinator: No MinDepth data available for %s even after "
+                "validation/repair.",
+                self.harbor_id,
+            )
+            raise UpdateFailed(
+                f"No MinDepth data available for {self.harbor_id} after validation/repair."
+            )
+        else:
+            try:
+
+                _LOGGER.debug("harborMinDepth %s", harborMinDepth)
+                await self._compute_minDepthInformations(
+                    tides_cache_full.get(self.harbor_id, {}),
+                    water_level_cache_full.get(self.harbor_id, {}),
+                    harborMinDepth.get(self.harbor_id, {}).get("harborMinDepth", {})
+                )
+            except Exception as err:
+                _LOGGER.exception(
+                    "Marées France Coordinator: Unexpected error processing data for %s",
+                    self.harbor_id,
+                )
+                raise UpdateFailed(f"Error processing data: {err}") from err
+
+
         future_window_days = 366
         tides_data_for_parser = {}
         coeff_data_for_parser = {}
@@ -539,6 +568,7 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "water_level_data_for_parser: %s",
                 water_level_data_for_parser,
             )
+
             return await self._parse_tide_data(
                 tides_data_for_parser,
                 coeff_data_for_parser,
@@ -553,6 +583,150 @@ class MareesFranceUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.harbor_id,
             )
             raise UpdateFailed(f"Error processing data: {err}") from err
+
+    async def _compute_minDepthInformations(
+        self,
+        tide_data: list[list[str]],
+        water_levels: list[list[str]] | None,
+        minDepth: float | None,
+    ) -> dict[str, Any]:
+        """
+        Docstring for _populate_tides_with_minDepthInformations
+        The purpose of this function is to
+
+        :param tides_raw_data: Description
+        :type tides_raw_data: dict[str, list[list[str]]]
+        :param coeff_raw_data: Description
+        :type coeff_raw_data: dict[str, list[str]]
+        :param harborMinDepth: Description
+        :type harborMinDepth: dict[str, list[dict[str, Any]]] | None
+        :return: Description
+        :rtype: dict[str, Any]
+        """
+        sorted_keys = sorted(tide_data.keys())
+
+        for date_key in sorted_keys:
+            day_events = tide_data.get(date_key)
+            if not day_events:
+                continue
+
+            # On filtre pour ne garder que les marées hautes
+            high_tides = [t for t in day_events if t[0] == 'tide.high']
+
+            for high_tide in high_tides:
+                tide_time = high_tide[1]
+
+                while len(high_tide) < 5:
+                    high_tide.append(None)
+
+                # 2. Calcul du minDepth pour TOUS les jours
+                # On construit le timestamp pour la marée actuelle
+                try:
+                    full_iso_time = f"{date_key}T{tide_time}:00"
+                    tide_dt = datetime.fromisoformat(full_iso_time)
+                    tide_timestamp = tide_dt.timestamp() * 1000
+                except ValueError:
+                    continue # Ignore si le format de date est corrompu
+
+                # Initialisation de la liste des croisements (index 5)
+                high_tide[4] = []
+
+                # Trouver le croisement AVANT (Montée)
+                before_x = await self._find_threshold_crossing(tide_timestamp, water_levels, minDepth, -1, date_key)
+                if before_x:
+                    high_tide[4].append(["before", before_x['HHMM'], before_x['dDay']])
+
+                # Trouver le croisement APRÈS (Descente)
+                after_x = await self._find_threshold_crossing(tide_timestamp, water_levels, minDepth, 1, date_key)
+                if after_x:
+                    high_tide[4].append(["after", after_x['HHMM'], after_x['dDay']])
+        _LOGGER.debug("_compute_minDepthInformations : %s", tide_data)
+        return
+
+    async def _flatten_DaysDict(self, dict: dict) -> list:
+        flat = []
+        for date_outer in sorted(dict.keys()):
+            day_content = dict[date_outer]
+
+            # On itère sur le contenu (le 2ème dictionnaire)
+            # day_content vaut {'2026-01-26': [[...], [...]]}
+            for date_inner in sorted(day_content.keys()):
+                for time_str, value in day_content[date_inner]:
+                    try:
+                        # On recrée le timestamp pour pouvoir calculer l'interpolation après
+                        full_iso = f"{date_inner}T{time_str}"
+                        ts = datetime.fromisoformat(full_iso).timestamp() * 1000
+
+                        flat.append({
+                            "timestamp": ts, "value": value})
+                    except ValueError:
+                        # Sécurité si une ligne de données est mal formattée
+                        continue
+        return flat
+
+    async def _find_threshold_crossing(
+        self,
+        start_time: float, # Timestamp en millisecondes
+        water_levels: dict[str, list[Any]],
+        threshold: float,
+        direction: int,
+        selected_day: str
+    ) -> Optional[dict[str, Any]]:
+
+        # On aplatit les données (méthode à convertir également)
+        all_points = await self._flatten_DaysDict(water_levels)
+        # Trouver l'index du point le plus proche (équivalent de findIndex)
+        current_index = -1
+        for idx, p in enumerate(all_points):
+            if p["timestamp"] >= start_time:
+                current_index = idx
+                break
+
+        if current_index == -1 and direction == 1:
+            return None
+
+        if direction == -1:
+            current_index -= 1
+
+        # Parcourir les points dans la direction demandée
+        while 0 <= current_index < len(all_points) - 1:
+            p1 = all_points[current_index]
+            p2 = all_points[current_index + 1]
+
+            # Vérifier si le seuil est entre ces deux points
+            # On utilise min/max pour couvrir montée et descente
+            if min(p1["value"], p2["value"]) <= threshold <= max(p1["value"], p2["value"]):
+
+                # Interpolation linéaire pour le timestamp exact
+                # Note : Attention à la division par zéro si p1.value == p2.value
+                if p2["value"] != p1["value"]:
+                    ratio = (threshold - p1["value"]) / (p2["value"] - p1["value"])
+                    intersect_timestamp = p1["timestamp"] + (p2["timestamp"] - p1["timestamp"]) * ratio
+                else:
+                    intersect_timestamp = p1["timestamp"]
+
+                # Conversion du timestamp (ms -> sec pour Python) en objet datetime
+                dt_intersect = datetime.fromtimestamp(intersect_timestamp / 1000.0)
+
+                # Formatage HH:MM
+                hh_mm = dt_intersect.strftime("%H:%M")
+
+                # Calcul du delta jour (dDay)
+                # On compare uniquement les dates (sans l'heure)
+                date_intersect = dt_intersect.date()
+                date_selected = datetime.fromisoformat(selected_day).date()
+
+                d_day = 0
+                if date_selected > date_intersect:
+                    d_day = -1
+                elif date_selected < date_intersect:
+                    d_day = 1
+
+                return {"HHMM": hh_mm, "dDay": d_day}
+
+            current_index += direction
+
+        return None
 
     async def _parse_tide_data(
         self,

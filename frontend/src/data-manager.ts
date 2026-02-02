@@ -141,30 +141,50 @@ export class DataManager {
       return;
     }
 
-    try {
-      const response = await this.callWebsocketCommand<GetWaterLevelsResponseData>(
-        'marees_france/get_water_levels',
-        {
-          device_id: this.card.config.device_id,
-          date: this.card._selectedDay
-        }
-      );
+    const baseDate = new Date(this.card._selectedDay);
+    const datesToFetch = [-1, 0, 1].map(offset => {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + offset);
+      return d.toISOString().slice(0, 10);
+    });
 
-      if (response && typeof response === 'object' && !('error' in response)) {
-        this.card._waterLevels = response;
-      } else {
-        const errorMsg = ('error' in response) ? response.error : 'Invalid data structure from websocket command';
-        console.error('Marees Card (DataManager): Invalid data from get_water_levels:', response);
-        this.card._waterLevels = { error: typeof errorMsg === 'string' ? errorMsg : 'Invalid data structure' };
+
+    for (let date of datesToFetch) {
+      try {
+        //TODO passer sur un promiseAll pour call en //
+        const response = await this.callWebsocketCommand<GetWaterLevelsResponseData>(
+          'marees_france/get_water_levels',
+          {
+            device_id: this.card.config.device_id,
+            date: date
+          }
+        );
+
+        if (response && typeof response === 'object' && !('error' in response)) {
+          this.card._waterLevels = {
+            ...this.card._waterLevels,
+            ...response
+          };
+        } else {
+          const errorMsg = ('error' in response) ? response.error : 'Invalid data structure from websocket command';
+          console.error('Marees Card (DataManager): Invalid data from get_water_levels:', response);
+          this.card._waterLevels = {
+            ...this.card._waterLevels,
+            ...{ error: typeof errorMsg === 'string' ? errorMsg : 'Invalid data structure' }
+          };
+        }
+      } catch (error: unknown) {
+        console.error('Marees Card (DataManager): Error calling get_water_levels:', error);
+        this.card._waterLevels = {
+          ...this.card._waterLevels,
+          ...{ error: error instanceof Error ? error.message : 'Service call failed' }
+        };
       }
-    } catch (error: unknown) {
-      console.error('Marees Card (DataManager): Error calling get_water_levels:', error);
-      this.card._waterLevels = { error: error instanceof Error ? error.message : 'Service call failed' };
-    } finally {
-      this.card._isLoadingWater = false;
-      this.updateInitialLoadingFlag();
-      this.card.requestUpdate();
-    }
+    };
+
+    this.card._isLoadingWater = false;
+    this.updateInitialLoadingFlag();
+    this.card.requestUpdate();
   }
 
   /**

@@ -4,7 +4,7 @@ import {
   ParsedTideEvent,
   NextTideStatus,
   TideEventTuple,
-} from './types.js';
+} from './types';
 
 /**
  * Helper function to get localized weekday abbreviation (3 letters).

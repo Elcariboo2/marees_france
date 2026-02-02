@@ -2,7 +2,7 @@
 // including setConfig, getStubConfig, and getConfigElement.
 // It will be responsible for validating and applying the card configuration.
 
-import { HomeAssistant, MareesFranceCardConfig, GetWaterLevelsResponseData, GetTidesDataResponseData, GetCoefficientsDataResponseData, GetHarborMinDepthResponseData } from './types';
+import { HomeAssistant, MareesFranceCardConfig, GetWaterLevelsResponseData, GetTidesDataResponseData, GetCoefficientsDataResponseData, GetHarborMinDepthResponseData, MinDepthLayoutTypeValues, MinDepthLayoutType } from './types';
 import { localizeCard } from './localize';
 
 // Define an interface for the card instance properties and methods
@@ -21,6 +21,7 @@ export interface CardInstanceForSetConfig {
   _isLoadingCoefficients: boolean;
   _isLoadingHarborMinDepth: boolean;
   _isInitialLoading: boolean;
+  _minDepthLayoutType: MinDepthLayoutType;
   // _isCalendarDialogOpen and _calendarSelectedMonth are now managed by CalendarDialogManager
   _deviceName: string | null;
   // Methods that setConfig calls on the card instance
@@ -45,6 +46,22 @@ export function setCardConfig(
       ) || 'Device required'
     );
   }
+  if (!newConfig.minDepthLayoutType) {
+    throw new Error(
+      localizeCard(
+        'ui.card.marees_france.error_minDepthLayoutType_required',
+        card.hass
+      ) || 'minDepthLayoutType required'
+    );
+  }
+
+  if (newConfig.minDepthLayoutType && !Object.values(MinDepthLayoutTypeValues).includes(newConfig.minDepthLayoutType))
+    throw new Error(
+      localizeCard(
+        'ui.card.marees_france.error_minDepthLayoutType_wrong',
+        card.hass
+      ) || 'Invalid minDepthLayoutType'
+    );
   card.config = newConfig; // Assign the validated config to the card instance
 
   // Initialize state properties on the card instance
@@ -62,6 +79,7 @@ export function setCardConfig(
   // card._isCalendarDialogOpen = false; // Managed by CalendarDialogManager
   // card._calendarSelectedMonth = new Date(); // Managed by CalendarDialogManager
   card._deviceName = null;
+  card._minDepthLayoutType = newConfig.minDepthLayoutType;
 
   // Fetch data immediately if hass is available on the card instance
   if (card.hass) {

@@ -136,6 +136,30 @@ export class MareesFranceCardEditor extends LitElement {
         },
         default: 'full',
       },
+      // add multiple choice to select layout for min depht informations
+      {
+        name: 'minDepthLayoutType',
+        label: localizeCard(
+          'ui.card.marees_france.editor.minDepthLayout_type',
+          this.hass
+        ),
+        selector: {
+          select: {
+            options: [
+              {
+                value: 'minimalist',
+                label: localizeCard('ui.card.marees_france.editor.minDepthLayout_type_minimalist', this.hass)
+              },
+              {
+                value: 'always_visible',
+                label: localizeCard('ui.card.marees_france.editor.minDepthLayout_type_alwaysVisible', this.hass)
+              },
+            ],
+            mode: 'dropdown',
+          },
+        },
+        default: 'minimalist',
+      },
       // --- End Card Type Picker ---
     ];
 
@@ -169,5 +193,5 @@ export class MareesFranceCardEditor extends LitElement {
 
 // Registration is handled by frontend/__init__.py, but defining keeps TS happy
 if (!window.customElements.get('marees-france-card-editor')) {
-    window.customElements.define('marees-france-card-editor', MareesFranceCardEditor);
+  window.customElements.define('marees-france-card-editor', MareesFranceCardEditor);
 }

@@ -56,6 +56,7 @@ export interface MareesFranceCardConfig extends LovelaceCardConfig {
   show_header?: boolean;
   title?: string | null;
   card_type?: 'full' | 'condensed';
+  minDepthLayoutType?: MinDepthLayoutType;
 }
 
 // --- Home Assistant Object Subset ---
@@ -65,10 +66,14 @@ export interface MareesFranceCardConfig extends LovelaceCardConfig {
 // Direct data structures returned by websocket commands (no wrapper needed)
 
 // --- Raw Data Structures from Services ---
+
+/** Represents a raw tide crossing min Depth event as an array: [type (before|after), time, deltaDay -1:previousDay, 0:currentDay, +1:nextDay] */
+export type TideMinDepthEventTuple = [string, string, number];
 /** Represents a raw tide event as an array: [type, time, height, coefficient] */
-export type TideEventTuple = [string, string, string, string];
+export type TideEventTuple = [string, string, string, string, number, TideMinDepthEventTuple[]];
 /** Represents a raw water level entry as an array: [time, height] */
 export type WaterLevelTuple = [string, string];
+
 
 /**
  * Expected data structure within the `response` object from the `get_tides_data` service.
@@ -157,5 +162,10 @@ export interface CurrentTimeMarkerData {
   water_temp?: number;
 }
 
-// --- SVG.js Basic Types (Placeholder if @types not available) ---
-// Rely on implicit 'any' or type assertions where needed for SVG.js for now
+// Min Depth Layout Type Definition
+export const MinDepthLayoutTypeValues = {
+  MINIMALIST: 'minimalist',
+  ALWAYS_VISIBLE: 'always_visible',
+} as const
+
+export type MinDepthLayoutType = typeof MinDepthLayoutTypeValues[keyof typeof MinDepthLayoutTypeValues]

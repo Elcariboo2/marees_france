@@ -143,6 +143,11 @@ export const cardStyles = css`
       }
       /* Separator is now handled directly in the HTML template */
 
+      .test-icon {
+        color: green; /* Use a less prominent color */
+        /* --mdc-icon-button-size: 30px; */ /* Note: Customizing mdc-icon-button-size can be tricky due to HA themes */
+      }
+
       .calendar-icon {
         color: var(--secondary-text-color); /* Use a less prominent color */
         /* --mdc-icon-button-size: 30px; */ /* Note: Customizing mdc-icon-button-size can be tricky due to HA themes */

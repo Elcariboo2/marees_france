@@ -89,15 +89,17 @@ class MareesFranceDepthToBoatNumber(
             configuration_url=None,  # No specific URL for device configuration
         )
 
-        _LOGGER.debug("Initialized number with unique_id: %s", self.unique_id)
+        _LOGGER.debug("Initialized number with unique_id: %s, value %s", self.unique_id, self._attr_native_value)
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to Home Assistant."""
         await super().async_added_to_hass()
 
-        state = await self.async_get_last_state()
-        if state is not None and state.state != "unavailable":
-            await self.async_set_native_value(float(state.state))
+        state = await self.async_get_last_number_data()
+        _LOGGER.debug("Added : Number state : %s", state)
+
+        if state is not None and state.native_value != "unavailable":
+            await self.async_set_native_value(float(state.native_value))
 
     async def async_update_coordinator(self, value: float) -> bool:
         await self.coordinator._async_update_from_number(self.unique_id, value)

@@ -434,6 +434,8 @@ async def _get_tides_data(hass: HomeAssistant, harbor_id: str) -> dict[str, Any]
 
     harbor_data = cache.get(harbor_id, {})
 
+    _LOGGER.debug("Tides_store %s", tides_store)
+
     data_valid = True
     if not isinstance(harbor_data, dict):
         data_valid = False

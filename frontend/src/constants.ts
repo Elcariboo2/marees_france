@@ -8,6 +8,10 @@ export interface EditorTranslationKeys {
   card_type: string;
   card_type_full: string;
   card_type_condensed: string;
+
+  minDepthLayout_type: string;
+  minDepthLayout_type_minimalist: string;
+  minDepthLayout_type_alwaysVisible: string;
 }
 
 /**
@@ -18,6 +22,8 @@ export interface CardTranslationKeys {
   missing_configuration: string;
   error_entity_required: string;
   error_device_required: string;
+  error_minDepthLayoutType_required: string;
+  error_minDepthLayoutType_wrong: string;
   entity_not_found: string;
   device_not_found: string;
   no_tide_data: string;
@@ -81,6 +87,10 @@ export const translations: TranslationStructure = {
             'Missing entity, please configure the card first',
           error_device_required:
             'Missing device, please configure the card first',
+          error_minDepthLayoutType_required:
+            'minDepthLayoutType is required in the configuration',
+          error_minDepthLayoutType_wrong:
+            'minDepthLayoutType should be either "minimalist" or "alwaysVisible"',
           entity_not_found: 'Entity not found: {entity}',
           device_not_found: 'Device not found: {device_id}',
           no_tide_data: 'No tide data found for device.',
@@ -119,6 +129,9 @@ export const translations: TranslationStructure = {
             card_type: 'Card Type',
             card_type_full: 'Full',
             card_type_condensed: 'Condensed',
+            minDepthLayout_type: 'Min Depth Information Layout',
+            minDepthLayout_type_minimalist: 'Minimalist',
+            minDepthLayout_type_alwaysVisible: 'Always Visible',
           },
         },
       },
@@ -134,6 +147,10 @@ export const translations: TranslationStructure = {
             "Entité manquante, veuillez d'abord configurer la carte",
           error_device_required:
             "Appareil manquant, veuillez d'abord configurer la carte",
+          error_minDepthLayoutType_required:
+            "minDepthLayoutType est requis dans la configuration",
+          error_minDepthLayoutType_wrong:
+            'minDepthLayoutType doit être soit "minimalist" soit "alwaysVisible"',
           entity_not_found: 'Entité non trouvée : {entity}',
           device_not_found: 'Appareil non trouvé : {device_id}',
           no_tide_data: "Aucune donnée de marée trouvée pour l'appareil.",
@@ -174,6 +191,9 @@ export const translations: TranslationStructure = {
             card_type: 'Type de carte',
             card_type_full: 'Complète',
             card_type_condensed: 'Condensée',
+            minDepthLayout_type: 'Affichage Profondeur Mini',
+            minDepthLayout_type_minimalist: 'Minimaliste',
+            minDepthLayout_type_alwaysVisible: 'Toujours visible',
           },
         },
       },

@@ -1,4 +1,4 @@
-import { SVG, Svg, Element as SvgElement, Circle, G, Rect, Text, Path, Line } from '@svgdotjs/svg.js';
+import { SVG, Svg, Element as SvgElement, Circle, G, Rect, Text, Path, Line, ForeignObject } from '@svgdotjs/svg.js';
 import { localizeCard } from './localize';
 import {
   HomeAssistant,
@@ -11,7 +11,10 @@ import {
   GraphMargins,
   PointData,
   CurrentTimeMarkerData,
-} from './types.js';
+  MinDepthLayoutType,
+  MinDepthLayoutTypeValues
+  //TideMinDepthEventTuple
+} from './types';
 
 export interface TooltipDelegate {
   updateInteractionTooltip(
@@ -42,6 +45,7 @@ export class GraphRenderer {
   private yDomainMax: number | null = null;
   private yRange: number | null = null;
   private waterTempData: GetWaterTempResponseData | null = null;
+  private waterLevelsData: GetWaterLevelsResponseData | null = null;
   private harborMinDepth: GetHarborMinDepthResponseData | null = null;
   private currentTimeMarkerData: CurrentTimeMarkerData | null = null;
   private currentTimeDotElement: Circle | null = null;
@@ -73,9 +77,27 @@ export class GraphRenderer {
     }
   }
 
-  private _timeToX(totalMinutes: number): number {
+  /**
+   *
+   * @param time format "HH:MM"
+   */
+  private _timeToX(time: string): number;
+  /**
+   *
+   * @param totalMinutes number of minutes
+   */
+  private _timeToX(totalMinutes: number): number
+  private _timeToX(arg: number | string): number {
+
     if (!this.graphMargin || this.graphWidth === null) return 0;
-    return this.graphMargin.left + (totalMinutes / (24 * 60)) * this.graphWidth;
+    switch (typeof arg) {
+      case "string":
+        var [hours, minutes] = arg.split(':').map(Number);
+        var totalMinutes = hours * 60 + minutes;
+        return this.graphMargin.left + (totalMinutes / (24 * 60)) * this.graphWidth;
+      case "number":
+        return this.graphMargin.left + (arg / (24 * 60)) * this.graphWidth;
+    }
   }
 
   private _heightToY(h: number): number {
@@ -134,6 +156,139 @@ export class GraphRenderer {
     if (timeDiff <= 0) return prevTemp.temp;
     const timeProgress = (targetTotalMinutes - prevTemp.totalMinutes) / timeDiff;
     return prevTemp.temp + (nextTemp.temp - prevTemp.temp) * timeProgress;
+  }
+
+  private _findLengthAtX(path: SVGPathElement, targetX: number): number {
+    let start = 0;
+    let end = path.getTotalLength();
+    let mid = 0;
+    const precision = 0.5; // Précision en pixels
+
+    // Sécurité : si le X est hors du path
+    const startX = path.getPointAtLength(0).x;
+    const endX = path.getPointAtLength(end).x;
+    if (targetX < startX) return 0;
+    if (targetX > endX) return end;
+
+    while (end - start > precision) {
+      mid = (start + end) / 2;
+      const point = path.getPointAtLength(mid);
+
+      if (point.x < targetX) {
+        start = mid;
+      } else {
+        end = mid;
+      }
+    }
+    return mid;
+  }
+
+  //The purpose of this function is to find and populate the tide events that cross the min depth line in the tideData
+  private populateMinDepthInformations(tideData: { [date: string]: TideEventTuple[] }, waterLevels: { [date: string]: WaterLevelTuple[] }, selectedDay: string, path: SVGPathElement, minDepth: number): void {
+    //TODO : manage cache for this function to avoid recomputing on each draw
+
+    const sortedKeys = Object.keys(tideData).sort();
+    for (let i = 0; i < sortedKeys.length; i++) {
+      const dateKey = sortedKeys[i];
+
+      const dayEvents = tideData[dateKey];
+      if (!dayEvents) return;
+
+      const highTides = dayEvents.filter(t => t[0] === 'tide.high');
+
+      highTides.forEach(highTide => {
+
+        const time = highTide[1];
+        const xPeak = this._timeToX(time);
+        const lengthAtPeak = this._findLengthAtX(path, xPeak);
+        highTide[4] = lengthAtPeak;
+
+        //For selectedDay only, we compute minDepth
+        if (selectedDay == dateKey) {
+          const tideTime = highTide[1]; // ex: "07:54"
+          const fullIsoTime = `${selectedDay}T${tideTime}:00`;
+          const tideTimestamp = new Date(fullIsoTime).getTime();
+
+          // Initialisation de l'index 5 (les événements de croisement)
+          highTide[5] = [];
+
+          // 1. Trouver le croisement AVANT (Montée)
+          const beforeX = this.findThresholdCrossing(tideTimestamp, waterLevels, minDepth, -1, selectedDay);
+          if (beforeX !== null) highTide[5].push(["before", beforeX.HHMM, beforeX.dDay]);
+
+          // 2. Trouver le croisement APRÈS (Descente)
+          const afterX = this.findThresholdCrossing(tideTimestamp, waterLevels, minDepth, 1, selectedDay);
+          if (afterX !== null) highTide[5].push(["after", afterX.HHMM, afterX.dDay]);
+        }
+      });
+    }
+  }
+
+  private findThresholdCrossing(
+    startTime: number,
+    waterLevels: { [date: string]: WaterLevelTuple[] },
+    threshold: number,
+    direction: number,
+    selectedDay: string,
+  ): { HHMM: string, dDay: number } | null {
+    // On aplatit les 3 jours de données en une seule timeline continue pour faciliter la recherche
+    const allPoints = this.flattenWaterLevels(waterLevels);
+
+    // Trouver l'index du point le plus proche de l'heure de la marée haute
+    let currentIndex = allPoints.findIndex(p => p.timestamp >= startTime);
+    if (direction === -1) currentIndex--;
+
+    // Parcourir les points dans la direction demandée
+    while (currentIndex >= 0 && currentIndex < allPoints.length - 1) {
+      const p1 = allPoints[currentIndex];
+      const p2 = allPoints[currentIndex + 1];
+
+      // Est-ce que le seuil est entre ces deux points ?
+      if ((p1.height <= threshold && p2.height >= threshold) ||
+        (p1.height >= threshold && p2.height <= threshold)) {
+
+        // Interpolation pour trouver le timestamp exact de l'intersection
+        const ratio = (threshold - p1.height) / (p2.height - p1.height);
+        const intersectTimestamp = p1.timestamp + (p2.timestamp - p1.timestamp) * ratio;
+
+        const date = new Date(intersectTimestamp);
+
+        // Récupère l'heure et les minutes telles qu'elles apparaissent sur votre montre
+        const hh = date.getHours().toString().padStart(2, '0');
+        const mm = date.getMinutes().toString().padStart(2, '0');
+
+        const dateWithoutTime = date.setHours(0, 0, 0, 0);
+        const selectedDayWithoutTime = new Date(selectedDay).setHours(0, 0, 0, 0);
+
+        let dDay = 0; //delta day
+        if (selectedDayWithoutTime > dateWithoutTime) {
+          dDay = -1;
+        } else if (selectedDayWithoutTime < dateWithoutTime) {
+          dDay = 1;
+        }
+
+        return { HHMM: `${hh}:${mm}`, dDay }
+      }
+
+      currentIndex += direction;
+    }
+
+    return null;
+  }
+
+  private flattenWaterLevels(waterLevels: GetWaterLevelsResponseData) {
+    const flat = [];
+    // Trier les dates pour être sûr de l'ordre (23, 24, 25)
+    const sortedDates = Object.keys(waterLevels).sort();
+
+    for (const date of sortedDates) {
+      for (const [time, height] of waterLevels[date]) {
+        // Créer un timestamp complet pour chaque point
+        const timestamp = new Date(`${date}T${time}`).getTime();
+        flat.push({ timestamp, height: parseFloat(height) });
+      }
+    }
+    return flat;
   }
 
   private getSVGCoordinates(evt: MouseEvent | TouchEvent): { x: number; y: number } | null {
@@ -229,8 +384,10 @@ export class GraphRenderer {
     waterTemp: GetWaterTempResponseData | null,
     selectedDay: string,
     harborMinDepth: GetHarborMinDepthResponseData | null,
+    minDepthLayoutType: MinDepthLayoutType
   ): void {
     if (!this.svgDraw || !this.svgContainer || !this.hass) return;
+
     this.svgDraw.clear();
     this.svgDraw.node.dataset.day = selectedDay;
     this.waterTempData = waterTemp;
@@ -346,7 +503,6 @@ export class GraphRenderer {
     const fillBottomY = this.graphMargin.top + this.graphHeight;
     var currentDepth: number | null = null;
 
-    //Compute current depth & temperature (interpolate)
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -359,7 +515,9 @@ export class GraphRenderer {
     var fillCurrentHeight = null; //By default no area to fill
 
     if (this.curveMinMinutes <= currentMinutes && currentMinutes <= this.curveMaxMinutes) {
-      currentDepth = this._interpolateHeight(currentMinutes); //Compute current depth
+
+      //Compute current depth & temperature (interpolate)
+      currentDepth = this._interpolateHeight(currentMinutes);
 
       if (selectedDay === now.toISOString().slice(0, 10) && currentDepth !== null) {
         //If selected day == current : compute current temp & TimeMarkerData position.
@@ -397,191 +555,339 @@ export class GraphRenderer {
 
     //Drawing Height Curve & fill area under curve (to bottomY or current depth for current day)
     draw.path(fillPath).fill({ color: curveColor, opacity: 0.4 }).stroke('none').attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke' });
-    draw.path(pathCurve).fill('none').stroke({ color: curveColor, width: 2 }).attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke' });
+    const pathCurveElement: SVGPathElement = draw.path(pathCurve).fill('none').stroke({ color: curveColor, width: 2 }).attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke' }).node;
 
 
     if (fillCurrentHeight !== null) { //If applicable === current day & current depth computed
       //Drawing area from current depth to bottomY
       draw.path(fillCurrentHeight).fill({ color: curveColor, opacity: 0.8 }).stroke('none').attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke' });
     }
+    //const timeLabels = [102, 494, 848, 1226];
+    //const timeLabels = [623, 704, 1359];
 
+    //var colorTime = 'var(--secondary-text-color, orange)';
+    var harborMinDepthValue = null;
     //Drawing danger/no-go zone if harborMinDepth is defined and relevant
     if (this.harborMinDepth?.harborMinDepth !== null && this.harborMinDepth?.harborMinDepth !== 0 && this.harborMinDepth?.harborMinDepth !== undefined) {
-      const harborMinDepthValue = this.harborMinDepth?.harborMinDepth;
+      harborMinDepthValue = this.harborMinDepth?.harborMinDepth;
 
-      //Compute and draw only if the min depth line is actually visible in the graph
-      if (this._heightToY(harborMinDepthValue!) < fillBottomY) {
-        const minDepthY = this._heightToY(harborMinDepthValue!); // Keep numeric for comparison
-        const minDepthYStr = minDepthY.toFixed(2); // String for path
+      //Checking if harborMinDepthValue is used
+      if (harborMinDepthValue !== null) {
+        //Compute and draw only if the min depth line is actually visible in the graph
+        if (this._heightToY(harborMinDepthValue!) < fillBottomY) {
 
-        // Avoid double opacity: Clip the standard fillPath so it stops at the danger zone limit
-        // We must respect currentDepth if it exists (for current day display)
-        let clipHeight = harborMinDepthValue!;
-        if (currentDepth !== null) {
-          clipHeight = Math.max(clipHeight, currentDepth);
-        }
+          //colorTime = 'var(--warning-color, orange)';
 
-        const clipY = this._heightToY(clipHeight).toFixed(2);
-        const pathDataClamped = this.pointsData.map(p =>
-          `L ${this._timeToX(p.totalMinutes).toFixed(2)} ${this._heightToY(Math.max(p.heightNum, clipHeight)).toFixed(2)}`
-        ).join(' ').replace('L', 'M');
-        fillPath = `M ${firstX.toFixed(2)} ${clipY} ${pathDataClamped.replace(/^M/, 'L')} L ${lastX.toFixed(2)} ${clipY} Z`;
+          const minDepthY = this._heightToY(harborMinDepthValue!); // Keep numeric for comparison
+          const minDepthYStr = minDepthY.toFixed(2); // String for path
 
-        // Calculate exclusion zones (gaps) for the limit line where it intersects with tide text
-        const gaps: { start: number, end: number }[] = [];
-        const tideEventsForDayGaps: TideEventTuple[] | undefined = tideData[selectedDay];
-        if (Array.isArray(tideEventsForDayGaps)) {
-          tideEventsForDayGaps.forEach((tideArr: TideEventTuple) => {
-            if (!Array.isArray(tideArr) || tideArr.length < 3) return;
-            const typeStr = tideArr[0], time = tideArr[1], height = parseFloat(tideArr[2]);
-            const isHigh = typeStr === 'tide.high' || typeStr === 'tide_high';
-            if ((!isHigh && (typeStr !== 'tide.low' && typeStr !== 'tide_low')) || !time || isNaN(height) || !time.includes(':')) return;
-            const [hours, minutes] = time.split(':').map(Number);
-            if (isNaN(hours) || isNaN(minutes)) return;
-            const totalMinutes = hours * 60 + minutes, x = this._timeToX(totalMinutes), y = this._heightToY(height);
-
-            // Reconstruct text Y positions (logic must match the main drawing loop)
-            const arrowSize = 8, textSpacing = 10, textLineHeight = 14.4;
-            const arrowYOffset = isHigh ? arrowSize * 2.1 : -arrowSize * 2.1;
-            const arrowY = y + arrowYOffset;
-            const arrowTipY = arrowY + (isHigh ? -arrowSize * 0.4 : arrowSize * 0.4);
-            let timeTextY, heightTextY;
-            if (isHigh) {
-              timeTextY = arrowTipY + textSpacing;
-              heightTextY = timeTextY + textLineHeight;
-            } else {
-              heightTextY = arrowTipY - textSpacing - textLineHeight;
-              timeTextY = heightTextY - textLineHeight;
-            }
-
-            // Define text block vertical range with padding
-            const topTextY = Math.min(timeTextY, heightTextY) - 15;
-            const bottomTextY = Math.max(timeTextY, heightTextY) + 15;
-
-            // Check intersection with minDepthY
-            if (minDepthY >= topTextY && minDepthY <= bottomTextY) {
-              // Intersection found! Add gap.
-              // Text width approx 45px (5 chars), half is ~22.5px. User wants ~4px padding.
-              // So +/- 28px around X.
-              gaps.push({ start: x - 28, end: x + 28 });
-            }
-          });
-        }
-        gaps.sort((a, b) => a.start - b.start);
-
-        // Construct dashed line path
-        let limitLinePath = '';
-        let currentX = firstX;
-
-        const addSegment = (toX: number) => {
-          if (toX > currentX + 0.1) { // Avoid tiny segments
-            limitLinePath += `M ${currentX.toFixed(2)} ${minDepthYStr} L ${toX.toFixed(2)} ${minDepthYStr} `;
+          // Avoid double opacity: Clip the standard fillPath so it stops at the danger zone limit
+          // We must respect currentDepth if it exists (for current day display)
+          let clipHeight = harborMinDepthValue!;
+          if (currentDepth !== null) {
+            clipHeight = Math.max(clipHeight, currentDepth);
           }
-        };
 
-        if (gaps.length === 0) {
-          limitLinePath = `M ${firstX.toFixed(2)} ${minDepthYStr} L ${lastX.toFixed(2)} ${minDepthYStr}`;
-        } else {
-          for (const gap of gaps) {
-            const segmentEnd = Math.max(currentX, Math.min(gap.start, lastX));
-            addSegment(segmentEnd);
-            currentX = Math.max(currentX, Math.min(gap.end, lastX));
+          const clipY = this._heightToY(clipHeight).toFixed(2);
+          const pathDataClamped = this.pointsData.map(p =>
+            `L ${this._timeToX(p.totalMinutes).toFixed(2)} ${this._heightToY(Math.max(p.heightNum, clipHeight)).toFixed(2)}`
+          ).join(' ').replace('L', 'M');
+          fillPath = `M ${firstX.toFixed(2)} ${clipY} ${pathDataClamped.replace(/^M/, 'L')} L ${lastX.toFixed(2)} ${clipY} Z`;
+
+          // Calculate exclusion zones (gaps) for the limit line where it intersects with tide text
+          const gaps: { start: number, end: number }[] = [];
+          const tideEventsForDayGaps: TideEventTuple[] | undefined = tideData[selectedDay];
+          if (Array.isArray(tideEventsForDayGaps)) {
+            tideEventsForDayGaps.forEach((tideArr: TideEventTuple) => {
+              if (!Array.isArray(tideArr) || tideArr.length < 3) return;
+              const typeStr = tideArr[0], time = tideArr[1], height = parseFloat(tideArr[2]);
+              const isHigh = typeStr === 'tide.high' || typeStr === 'tide_high';
+              if ((!isHigh && (typeStr !== 'tide.low' && typeStr !== 'tide_low')) || !time || isNaN(height) || !time.includes(':')) return;
+              const [hours, minutes] = time.split(':').map(Number);
+              if (isNaN(hours) || isNaN(minutes)) return;
+              const totalMinutes = hours * 60 + minutes, x = this._timeToX(totalMinutes), y = this._heightToY(height);
+
+              // Reconstruct text Y positions (logic must match the main drawing loop)
+              const arrowSize = 8, textSpacing = 10, textLineHeight = 14.4;
+              const arrowYOffset = isHigh ? arrowSize * 2.1 : -arrowSize * 2.1;
+              const arrowY = y + arrowYOffset;
+              const arrowTipY = arrowY + (isHigh ? -arrowSize * 0.4 : arrowSize * 0.4);
+              let timeTextY, heightTextY;
+              if (isHigh) {
+                timeTextY = arrowTipY + textSpacing;
+                heightTextY = timeTextY + textLineHeight;
+              } else {
+                heightTextY = arrowTipY - textSpacing - textLineHeight;
+                timeTextY = heightTextY - textLineHeight;
+              }
+
+              // Define text block vertical range with padding
+              const topTextY = Math.min(timeTextY, heightTextY) - 15;
+              const bottomTextY = Math.max(timeTextY, heightTextY) + 15;
+
+              // Check intersection with minDepthY
+              if (minDepthY >= topTextY && minDepthY <= bottomTextY) {
+                // Intersection found! Add gap.
+                // Text width approx 45px (5 chars), half is ~22.5px. User wants ~4px padding.
+                // So +/- 28px around X.
+                gaps.push({ start: x - 28, end: x + 28 });
+              }
+            });
           }
-          addSegment(lastX);
+          gaps.sort((a, b) => a.start - b.start);
+
+          // Construct dashed line path
+          let limitLinePath = '';
+          let currentX = firstX;
+
+          const addSegment = (toX: number) => {
+            if (toX > currentX + 0.1) { // Avoid tiny segments
+              limitLinePath += `M ${currentX.toFixed(2)} ${minDepthYStr} L ${toX.toFixed(2)} ${minDepthYStr} `;
+            }
+          };
+
+          if (gaps.length === 0) {
+            limitLinePath = `M ${firstX.toFixed(2)} ${minDepthYStr} L ${lastX.toFixed(2)} ${minDepthYStr}`;
+          } else {
+            for (const gap of gaps) {
+              const segmentEnd = Math.max(currentX, Math.min(gap.start, lastX));
+              addSegment(segmentEnd);
+              currentX = Math.max(currentX, Math.min(gap.end, lastX));
+            }
+            addSegment(lastX);
+          }
+
+          // Hatch area: follows the curve but capped at the limit line (unchanged)
+          const pathDataHatchTop = this.pointsData.map(p => `L ${this._timeToX(p.totalMinutes).toFixed(2)} ${this._heightToY(Math.min(p.heightNum, harborMinDepthValue!)).toFixed(2)}`).join(' ').replace('L', 'M');
+          const fillPathHatch = `M ${firstX.toFixed(2)} ${fillBottomY.toFixed(2)} ${pathDataHatchTop.replace(/^M/, 'L')} L ${lastX.toFixed(2)} ${fillBottomY.toFixed(2)} Z`;
+
+          // Draw dashed/broken limit line (stroke-dasharray="6" for dashes)
+          draw.path(limitLinePath).fill('none').stroke({ color: dangerZoneBorderColor, width: dangerZoneBorderWidth, opacity: dangerZoneBorderOpacity }).attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke', 'stroke-dasharray': '6' });
+
+          // Add text for harbor min depth at top left of limit line
+          const depthText = draw.text(`${harborMinDepthValue!.toFixed(1)}m`).font({ fill: dangerZoneBorderColor, size: 10, anchor: 'start' }).move(firstX - 10, minDepthY - 15);
+          this.elementsToKeepSize.push(depthText);
+
+          // Draw hatch fill area
+          draw.path(fillPathHatch).fill(dangerZoneHatch).stroke('none').attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke' });
+
+          // Draw vertical lines for time labels
+          /*for (const mins of timeLabels) {
+            const x = this._timeToX(mins === 1440 ? 1439.99 : mins);
+            draw.line(x, fillBottomY, x, minDepthY).stroke({ color: 'white', width: dangerZoneBorderWidth - 1, opacity: dangerZoneBorderOpacity }).attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke', 'stroke-dasharray': '6' });
+          }*/
+
+          //const crossCurveLineGroup = draw.group() as G;
+
+          /*for (const mins of timeLabels) {
+            const x = this._timeToX(mins === 1440 ? 1439.99 : mins);
+            const hours = Math.floor(mins / 60) % 24;
+            const minutes = mins % 60;
+            const label = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+            const tempText = draw.text(label).font({ size: 12, weight: 'bold', anchor: 'middle' }).attr('dominant-baseline', 'central').opacity(0);
+            const textBBox = tempText.bbox();
+            tempText.remove();
+            if (textBBox && !isNaN(textBBox.width) && !isNaN(textBBox.height) && !isNaN(x)) {
+              const boxWidth = textBBox.width + 12, boxHeight = textBBox.height + 8, boxX = x - boxWidth / 2, boxY = 55;
+              crossCurveLineGroup.rect(boxWidth, boxHeight).attr({ x: boxX, y: boxY, rx: 4, ry: 4 }).fill('var(--secondary-background-color, #f0f0f0)').stroke({ color: 'var(--ha-card-border-color, var(--divider-color, grey))', width: 1 }).attr('vector-effect', 'non-scaling-stroke');
+              const coefColor = 'var(--primary-text-color, black)';
+              crossCurveLineGroup.text(label).font({ fill: coefColor, size: 12, weight: 'bold', anchor: 'middle' }).attr('dominant-baseline', 'central').attr({ x: boxX + boxWidth / 2, y: boxY + boxHeight / 2 });
+              const lineStartY = boxY + boxHeight, lineEndY = minDepthY - 10;
+              if (!isNaN(lineStartY) && !isNaN(lineEndY) && lineEndY > lineStartY) {
+                crossCurveLineGroup.line(x, lineStartY, x, lineEndY).stroke({ color: 'var(--primary-text-color, #212121)', width: 1, dasharray: '2,2' }).attr('vector-effect', 'non-scaling-stroke');
+              }
+              //this.elementsToKeepSize.push(crossCurveLineGroup);
+            }
+          }*/
         }
-
-        // Hatch area: follows the curve but capped at the limit line (unchanged)
-        const pathDataHatchTop = this.pointsData.map(p => `L ${this._timeToX(p.totalMinutes).toFixed(2)} ${this._heightToY(Math.min(p.heightNum, harborMinDepthValue!)).toFixed(2)}`).join(' ').replace('L', 'M');
-        const fillPathHatch = `M ${firstX.toFixed(2)} ${fillBottomY.toFixed(2)} ${pathDataHatchTop.replace(/^M/, 'L')} L ${lastX.toFixed(2)} ${fillBottomY.toFixed(2)} Z`;
-
-        // Draw dashed/broken limit line (stroke-dasharray="6" for dashes)
-        draw.path(limitLinePath).fill('none').stroke({ color: dangerZoneBorderColor, width: dangerZoneBorderWidth, opacity: dangerZoneBorderOpacity }).attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke', 'stroke-dasharray': '6' });
-
-        // Draw hatch fill area
-        draw.path(fillPathHatch).fill(dangerZoneHatch).stroke('none').attr({ 'shape-rendering': 'geometricPrecision', 'vector-effect': 'non-scaling-stroke' });
       }
-    }
 
-    const interactionGroup = draw.group().attr('id', 'interaction-indicator').hide() as G;
-    this.interactionLine = interactionGroup.line(0, 0, 0, 0).stroke({ color: 'var(--primary-text-color, black)', width: 1, dasharray: '2,2' }).attr({ 'pointer-events': 'none', 'vector-effect': 'non-scaling-stroke' }) as Line;
-    const interactionDot = interactionGroup.circle(12).fill('var(--info-color, blue)').attr('pointer-events', 'none') as Circle;
+      const interactionGroup = draw.group().attr('id', 'interaction-indicator').hide() as G;
+      this.interactionLine = interactionGroup.line(0, 0, 0, 0).stroke({ color: 'var(--primary-text-color, black)', width: 1, dasharray: '2,2' }).attr({ 'pointer-events': 'none', 'vector-effect': 'non-scaling-stroke' }) as Line;
+      const interactionDot = interactionGroup.circle(12).fill('var(--info-color, blue)').attr('pointer-events', 'none') as Circle;
 
-    for (let mins = 0; mins <= 1440; mins += 480) {
-      const x = this._timeToX(mins === 1440 ? 1439.99 : mins);
-      const label = (mins / 60 === 24) ? '00:00' : `${String(mins / 60).padStart(2, '0')}:00`;
-      const textEl = draw.text(label).font({ fill: 'var(--secondary-text-color, grey)', size: 14, anchor: 'middle', weight: 'normal' }).move(x, viewBoxHeight - 11.2);
-      this.elementsToKeepSize.push(textEl);
-    }
+      for (let mins = 0; mins <= 1440; mins += 480) {
+        const x = this._timeToX(mins === 1440 ? 1439.99 : mins);
+        const hours = Math.floor(mins / 60) % 24;
+        const minutes = mins % 60;
+        const label = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        const textEl = draw.text(label).font({ fill: 'var(--secondary-text-color, gray)', size: 14, anchor: 'middle', weight: 'normal' }).move(x, viewBoxHeight - 11.2);
+        this.elementsToKeepSize.push(textEl);
+      }
 
-    const tideEventsForDay: TideEventTuple[] | undefined = tideData[selectedDay];
-    if (Array.isArray(tideEventsForDay)) {
-      tideEventsForDay.forEach((tideArr: TideEventTuple) => {
-        if (!Array.isArray(tideArr) || tideArr.length < 3) return;
-        const typeStr = tideArr[0], time = tideArr[1], height = parseFloat(tideArr[2]), coeff = tideArr.length > 3 && tideArr[3] !== '---' ? parseInt(tideArr[3], 10) : null;
-        const isHigh = typeStr === 'tide.high' || typeStr === 'tide_high';
-        if ((!isHigh && (typeStr !== 'tide.low' && typeStr !== 'tide_low')) || !time || isNaN(height) || !time.includes(':')) return;
-        const [hours, minutes] = time.split(':').map(Number);
-        if (isNaN(hours) || isNaN(minutes)) return;
-        const totalMinutes = hours * 60 + minutes, x = this._timeToX(totalMinutes), y = this._heightToY(height);
-        const arrowGroup = draw.group() as G;
-        const arrowSize = 8, textSpacing = 10, textLineHeight = 14.4;
-        const arrowYOffset = isHigh ? arrowSize * 2.1 : -arrowSize * 2.1;
-        const arrowY = y + arrowYOffset;
-        let arrowPathData;
-        if (isHigh) {
-          arrowPathData = `M ${x - arrowSize / 2},${arrowY + arrowSize * 0.4} L ${x + arrowSize / 2},${arrowY + arrowSize * 0.4} L ${x},${arrowY - arrowSize * 0.4} Z`;
-        } else {
-          arrowPathData = `M ${x - arrowSize / 2},${arrowY - arrowSize * 0.4} L ${x + arrowSize / 2},${arrowY - arrowSize * 0.4} L ${x},${arrowY + arrowSize * 0.4} Z`;
-        }
-        arrowGroup.path(arrowPathData).fill('var(--primary-text-color, black)').stroke('none');
-        let timeTextY, heightTextY;
-        const arrowTipY = arrowY + (isHigh ? -arrowSize * 0.4 : arrowSize * 0.4);
-        if (isHigh) {
-          timeTextY = arrowTipY + textSpacing;
-          heightTextY = timeTextY + textLineHeight;
-        } else {
-          heightTextY = arrowTipY - textSpacing - textLineHeight;
-          timeTextY = heightTextY - textLineHeight;
-        }
-        arrowGroup.text(time).font({ fill: 'var(--primary-text-color, black)', size: 14, weight: 'bold' }).attr('text-anchor', 'middle').cx(x).y(timeTextY);
-        arrowGroup.text(`${height.toFixed(1)}m`).font({ fill: 'var(--primary-text-color, black)', size: 12 }).attr('text-anchor', 'middle').cx(x).y(heightTextY);
-        this.elementsToKeepSize.push(arrowGroup);
-        if (isHigh && coeff !== null) {
-          const coefGroup = draw.group() as G;
-          const coefText = String(coeff);
-          const tempText = draw.text(coefText).font({ size: 16, weight: 'bold', anchor: 'middle' }).attr('dominant-baseline', 'central').opacity(0);
-          const textBBox = tempText.bbox();
-          tempText.remove();
-          if (textBBox && !isNaN(textBBox.width) && !isNaN(textBBox.height) && !isNaN(x)) {
-            const boxWidth = textBBox.width + 12, boxHeight = textBBox.height + 8, boxX = x - boxWidth / 2, boxY = 10;
-            coefGroup.rect(boxWidth, boxHeight).attr({ x: boxX, y: boxY, rx: 4, ry: 4 }).fill('var(--secondary-background-color, #f0f0f0)').stroke({ color: 'var(--ha-card-border-color, var(--divider-color, grey))', width: 1 }).attr('vector-effect', 'non-scaling-stroke');
-            const coefColor = coeff >= 100 ? 'var(--warning-color)' : 'var(--primary-text-color, black)';
-            coefGroup.text(coefText).font({ fill: coefColor, size: 16, weight: 'bold', anchor: 'middle' }).attr('dominant-baseline', 'central').attr({ x: boxX + boxWidth / 2, y: boxY + boxHeight / 2 });
-            const lineStartY = boxY + boxHeight, lineEndY = y - 10;
-            if (!isNaN(lineStartY) && !isNaN(lineEndY) && lineEndY > lineStartY) {
-              coefGroup.line(x, lineStartY, x, lineEndY).stroke({ color: 'var(--primary-text-color, #212121)', width: 1, dasharray: '2,2' }).attr('vector-effect', 'non-scaling-stroke');
+      //Checking if harborMinDepthValue is used
+      if (harborMinDepthValue !== null) {
+        //
+        this.populateMinDepthInformations(tideData, waterLevels, selectedDay, pathCurveElement, harborMinDepthValue);
+        console.error("tide Data : ", tideData);
+      }
+
+      const tideEventsForDay: TideEventTuple[] | undefined = tideData[selectedDay];
+      if (Array.isArray(tideEventsForDay)) {
+        for (let i = 0; i < tideEventsForDay.length; i++) {
+          const tideArr = tideEventsForDay[i];
+          const isFirst = i === 0;
+          const isLast = i === tideEventsForDay.length - 1;
+
+          if (!Array.isArray(tideArr) || tideArr.length < 3) return;
+          const typeStr = tideArr[0], time = tideArr[1], height = parseFloat(tideArr[2]), coeff = tideArr.length > 3 && tideArr[3] !== '---' ? parseInt(tideArr[3], 10) : null;
+          const isHigh = typeStr === 'tide.high' || typeStr === 'tide_high';
+          if ((!isHigh && (typeStr !== 'tide.low' && typeStr !== 'tide_low')) || !time || isNaN(height) || !time.includes(':')) return;
+          const [hours, minutes] = time.split(':').map(Number);
+          if (isNaN(hours) || isNaN(minutes)) return;
+          const totalMinutes = hours * 60 + minutes, x = this._timeToX(totalMinutes), y = this._heightToY(height);
+          const arrowGroup = draw.group() as G;
+          const arrowSize = 8, textSpacing = 10, textLineHeight = 14.4;
+          const arrowYOffset = isHigh ? arrowSize * 2.1 : -arrowSize * 2.1;
+          const arrowY = y + arrowYOffset;
+          let arrowPathData;
+          if (isHigh) {
+            arrowPathData = `M ${x - arrowSize / 2},${arrowY + arrowSize * 0.4} L ${x + arrowSize / 2},${arrowY + arrowSize * 0.4} L ${x},${arrowY - arrowSize * 0.4} Z`;
+          } else {
+            arrowPathData = `M ${x - arrowSize / 2},${arrowY - arrowSize * 0.4} L ${x + arrowSize / 2},${arrowY - arrowSize * 0.4} L ${x},${arrowY + arrowSize * 0.4} Z`;
+          }
+          arrowGroup.path(arrowPathData).fill('var(--primary-text-color, black)').stroke('none');
+          let timeTextY, heightTextY;
+          const arrowTipY = arrowY + (isHigh ? -arrowSize * 0.4 : arrowSize * 0.4);
+          if (isHigh) {
+            timeTextY = arrowTipY + textSpacing;
+            heightTextY = timeTextY + textLineHeight;
+          } else {
+            heightTextY = arrowTipY - textSpacing - textLineHeight;
+            timeTextY = heightTextY - textLineHeight;
+          }
+          arrowGroup.text(time).font({ fill: 'var(--primary-text-color, black)', size: 14, weight: 'bold' }).attr('text-anchor', 'middle').cx(x).y(timeTextY);
+          arrowGroup.text(`${height.toFixed(1)}m`).font({ fill: 'var(--primary-text-color, black)', size: 12 }).attr('text-anchor', 'middle').cx(x).y(heightTextY);
+          this.elementsToKeepSize.push(arrowGroup);
+
+          // Draw coefficient box above for high tides if coeff is available
+          if (isHigh && coeff !== null) {
+            const coefGroup = draw.group() as G;
+            const coefText = String(coeff);
+            const tempText = draw.text(coefText).font({ size: 16, weight: 'bold', anchor: 'middle' }).attr('dominant-baseline', 'central').opacity(0);
+            const textBBox = tempText.bbox();
+            tempText.remove();
+            if (textBBox && !isNaN(textBBox.width) && !isNaN(textBBox.height) && !isNaN(x)) {
+              const boxWidth = textBBox.width + 12, boxHeight = textBBox.height + 8, boxX = x - boxWidth / 2, boxY = 10;
+              coefGroup.rect(boxWidth, boxHeight).attr({ x: boxX, y: boxY, rx: 4, ry: 4 }).fill('var(--secondary-background-color, #f0f0f0)').stroke({ color: 'var(--ha-card-border-color, var(--divider-color, grey))', width: 1 }).attr('vector-effect', 'non-scaling-stroke');
+              const coefColor = coeff >= 100 ? 'var(--warning-color)' : 'var(--primary-text-color, black)';
+              coefGroup.text(coefText).font({ fill: coefColor, size: 16, weight: 'bold', anchor: 'middle' }).attr('dominant-baseline', 'central').attr({ x: boxX + boxWidth / 2, y: boxY + boxHeight / 2 });
+              const lineStartY = boxY + boxHeight, lineEndY = y - 10;
+              if (!isNaN(lineStartY) && !isNaN(lineEndY) && lineEndY > lineStartY) {
+                coefGroup.line(x, lineStartY, x, lineEndY).stroke({ color: 'var(--primary-text-color, #212121)', width: 1, dasharray: '2,2' }).attr('vector-effect', 'non-scaling-stroke');
+              }
+
+              this.elementsToKeepSize.push(coefGroup);
             }
-            this.elementsToKeepSize.push(coefGroup);
+          }
+
+          //Display of graphic element for min Depth informations
+          if (harborMinDepthValue != null) {
+
+            if (!isHigh && (isFirst || isLast)) {
+              const dayPrevNext = new Date(selectedDay);
+              // On récupère le jour du mois et on ajoute 1
+              dayPrevNext.setDate(dayPrevNext.getDate() + (isFirst ? -1 : 1));
+              const test = tideData[dayPrevNext.toISOString().slice(0, 10)]
+              console.error("test ", test);
+              let test2 = test[isFirst ? (test.length - 1) : 0]
+
+              console.error("test2 ", test2);
+
+
+            }
+
+            //var pointOnCurve: DOMPoint | null = null;
+
+            //&& pointOnCurve && !isNaN(ratioOnPath)
+            var ratioOnPath: number = NaN;
+            if (tideArr[4]) {
+              ratioOnPath = tideArr[4] / pathCurveElement.getTotalLength();
+              //pointOnCurve = pathCurveElement.getPointAtLength(tideArr[4]);
+            }
+
+            if (tideArr.length >= 5 && Array.isArray(tideArr[5])) {
+              const minDepthEventArray = Object.fromEntries(tideArr[5].filter(t => t[2] === 0)); //Filter on currentDay event only
+
+              const minDepthY = this._heightToY(harborMinDepthValue!);
+
+              if (minDepthEventArray["before"]) {
+                const xgreen = this._timeToX(minDepthEventArray["before"]);
+                draw.circle(9).center(xgreen, minDepthY).fill('green').attr('pointer-events', 'none');
+              }
+              if (minDepthEventArray["after"]) {
+                const xred = this._timeToX(minDepthEventArray["after"]);
+                draw.circle(9).center(xred, minDepthY).fill('red').attr('pointer-events', 'none');
+              }
+
+              //draw.circle(12).center(boxX + 40, boxY).fill('green').attr('pointer-events', 'none');
+
+              // Additional graphical elements for depth informations based on minDepthLayoutType selected by user
+              switch (minDepthLayoutType) {
+                case MinDepthLayoutTypeValues.ALWAYS_VISIBLE:
+                  if (tideArr.length >= 5 && Array.isArray(tideArr[5])) {
+                    if (tideArr[5].length !== 2) return;
+                    const minDepthEventArray = Object.fromEntries(tideArr[5]);
+
+                    draw.text((add) => {
+
+                      add.tspan(minDepthEventArray["before"] + " > " + minDepthEventArray["after"]).attr({
+                        'dy': -11,
+                        'dominant-baseline': 'central'
+                      });
+                    }).font({ size: 14, anchor: 'middle', fill: 'var(--primary-text-color, #212121)' }).opacity(1).path(pathCurve).attr({ 'startOffset': ratioOnPath * 100 + '%' });
+
+                    var fwaterOkIcon = draw.foreignObject(20, 20);
+                    fwaterOkIcon.node.innerHTML = `
+                  <div style="display: flex;² align-items: center; font-family: sans-serif;">
+                    <ha-icon icon="mdi:water-check-outline" style="display: inline-flex;color: green;align-items: center;--mdc-icon-size: 1.3em;"></ha-icon>
+                  </div>`;
+                    var fwaterKoIcon = draw.foreignObject(20, 20);
+                    fwaterKoIcon.node.innerHTML = `
+                  <div style="display: flex; align-items: center; font-family: sans-serif;">
+                    <ha-icon icon="mdi:water-alert-outline" style="display: inline-flex;color: red;align-items: center;--mdc-icon-size: 1.3em;"></ha-icon>
+                  </div>`;
+
+                    var virtualPath: Path = SVG().path(pathCurve);
+                    //TODO: optimize position calculation by caching total length and reusing points if needed
+                    this.placeIconOnPath(virtualPath, tideArr[4], fwaterOkIcon, -23);
+                    this.placeIconOnPath(virtualPath, tideArr[4], fwaterKoIcon, 27);
+                  }
+                  else {
+                    console.error("No path data available for coefficient positioning.");
+                  }
+
+                  break;
+                case MinDepthLayoutTypeValues.MINIMALIST:
+                  //TODO: Implement minimalist layout
+
+                  break;
+                default:
+                  break;
+
+              }
+            }
           }
         }
-      });
+      }
+
+      if (this.currentTimeMarkerData) {
+        this.currentTimeDotElement = draw.circle(12).center(this.currentTimeMarkerData.x, this.currentTimeMarkerData.y).fill('var(--tide-icon-color)').attr('pointer-events', 'none') as Circle;
+      }
+
+      const overlay = draw.rect(this.graphWidth, this.graphHeight).move(this.graphMargin.left, this.graphMargin.top).fill('transparent').attr('cursor', 'crosshair') as Rect;
+      this._boundHandleInteractionMove = this._handleInteractionMove.bind(this, interactionGroup, interactionDot);
+      this._boundHandleInteractionEnd = this._handleInteractionEnd.bind(this, interactionGroup);
+      overlay.node.addEventListener('mousemove', this._boundHandleInteractionMove);
+      overlay.node.addEventListener('touchstart', this._boundHandleInteractionMove, { passive: false });
+      overlay.node.addEventListener('touchmove', this._boundHandleInteractionMove, { passive: false });
+      overlay.node.addEventListener('mouseleave', this._boundHandleInteractionEnd);
+      overlay.node.addEventListener('touchend', this._boundHandleInteractionEnd);
+      overlay.node.addEventListener('touchcancel', this._boundHandleInteractionEnd);
+
+      window.requestAnimationFrame(() => this._updateElementScale());
     }
-
-    if (this.currentTimeMarkerData) {
-      this.currentTimeDotElement = draw.circle(12).center(this.currentTimeMarkerData.x, this.currentTimeMarkerData.y).fill('var(--tide-icon-color)').attr('pointer-events', 'none') as Circle;
-    }
-
-    const overlay = draw.rect(this.graphWidth, this.graphHeight).move(this.graphMargin.left, this.graphMargin.top).fill('transparent').attr('cursor', 'crosshair') as Rect;
-    this._boundHandleInteractionMove = this._handleInteractionMove.bind(this, interactionGroup, interactionDot);
-    this._boundHandleInteractionEnd = this._handleInteractionEnd.bind(this, interactionGroup);
-    overlay.node.addEventListener('mousemove', this._boundHandleInteractionMove);
-    overlay.node.addEventListener('touchstart', this._boundHandleInteractionMove, { passive: false });
-    overlay.node.addEventListener('touchmove', this._boundHandleInteractionMove, { passive: false });
-    overlay.node.addEventListener('mouseleave', this._boundHandleInteractionEnd);
-    overlay.node.addEventListener('touchend', this._boundHandleInteractionEnd);
-    overlay.node.addEventListener('touchcancel', this._boundHandleInteractionEnd);
-
-    window.requestAnimationFrame(() => this._updateElementScale());
   }
 
   public refreshDimensionsAndScale(): void {
@@ -589,6 +895,40 @@ export class GraphRenderer {
       if (this.svgContainer && this.svgDraw) this._updateElementScale();
     });
   }
+
+  private placeIconOnPath(path: Path, distance: number, fObj: ForeignObject, horizontalOffset: number = 0): void {
+    const totalLen = path.length();
+    // 1. Calcul de la distance cible sur le rail (avec décalage horizontal)
+    const targetDist = Math.max(0, Math.min(totalLen, distance + horizontalOffset));
+
+    // 2. Récupération de deux points très proches pour déterminer la pente
+    const p1 = path.pointAt(targetDist);
+    const p2 = path.pointAt(targetDist + 0.1 > totalLen ? targetDist - 0.1 : targetDist + 0.1);
+
+    // 3. Calcul de l'angle de la tangente (la pente du chemin)
+    const angleRad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const angleDeg = angleRad * (180 / Math.PI);
+
+    // 4. Calcul du décalage perpendiculaire (simulant dy = -10)
+    // On tourne l'angle de -90° (PI/2) pour pointer "vers le haut" par rapport à la courbe
+    const dyOffset = 23;
+    const nx = Math.cos(angleRad - Math.PI / 2) * dyOffset;
+    const ny = Math.sin(angleRad - Math.PI / 2) * dyOffset;
+
+    // 5. Position finale : Point sur la courbe + Vecteur Normal
+    const finalX = p1.x + nx;
+    const finalY = p1.y + ny;
+
+    const size = 24;
+
+    // On centre l'objet sur le nouveau point décalé
+    fObj.move(finalX - size / 2, finalY - size / 2);
+
+    // On applique la rotation sur le centre de l'icône décalée
+    fObj.rotate(angleDeg, finalX, finalY);
+  }
+
+
 
   private _handleInteractionMove(interactionGroup: G, interactionDot: Circle, event: MouseEvent | TouchEvent): void {
     if (event.type.startsWith('touch')) event.preventDefault();

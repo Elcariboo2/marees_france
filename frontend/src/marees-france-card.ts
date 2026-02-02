@@ -11,6 +11,8 @@ import {
   GetWaterTempResponseData,
   GetHarborMinDepthResponseData,
   NextTideStatus,
+  MinDepthLayoutType,
+  MinDepthLayoutTypeValues,
 } from './types';
 import { cardStyles } from './card-styles';
 import { setCardConfig, getCardStubConfig, getCardConfigElement, CardInstanceForSetConfig } from './card-config';
@@ -48,6 +50,8 @@ export class MareesFranceCard extends LitElement implements CardInstanceForSetCo
   // --- State Properties ---
   @state() _selectedDay: string = ''; // YYYY-MM-DD format
   @state() _waterLevels: GetWaterLevelsResponseData | { error: string } | null = null;
+  @state() _waterLevelsPrevDay: GetWaterLevelsResponseData | { error: string } | null = null;
+  @state() _waterLevelsNextDay: GetWaterLevelsResponseData | { error: string } | null = null;
   @state() _tideData: GetTidesDataResponseData | { error: string } | null = null;
   @state() _coefficientsData: GetCoefficientsDataResponseData | { error: string } | null = null;
   @state() _waterTempData: GetWaterTempResponseData | { error: string } | null = null;
@@ -60,6 +64,8 @@ export class MareesFranceCard extends LitElement implements CardInstanceForSetCo
   @state() _isInitialLoading: boolean = true;
   @state() _deviceName: string | null = null;
   @state() _isGraphOverlayVisible: boolean = false;
+  @state() _minDepthLayoutType: MinDepthLayoutType = MinDepthLayoutTypeValues.MINIMALIST;
+
   @state() private _now: number = Date.now(); // Triggers periodic graph updates for real-time cursor
   // _graphRenderer and _svgContainer are now managed by GraphInteractionManager
   // Calendar-specific state properties (_isCalendarDialogOpen, _calendarSelectedMonth, _touchStartX, _touchStartY,
@@ -82,6 +88,7 @@ export class MareesFranceCard extends LitElement implements CardInstanceForSetCo
     this._dataManager = new DataManager(this);
     this._calendarDialogManager = new CalendarDialogManager(this);
     this._graphInteractionManager = new GraphInteractionManager(this);
+    this._minDepthLayoutType = MinDepthLayoutTypeValues.MINIMALIST;
     // _boundHandlePopState initialization removed as it's handled by CalendarDialogManager
   }
 
@@ -187,7 +194,8 @@ export class MareesFranceCard extends LitElement implements CardInstanceForSetCo
       changedProperties.has('_isLoadingWater') ||
       changedProperties.has('_isLoadingTides') ||
       changedProperties.has('_isLoadingWaterTemp') ||
-      changedProperties.has('_now'); // Trigger redraw on periodic time update
+      changedProperties.has('_now') || // Trigger redraw on periodic time update
+      changedProperties.has('_minDepthLayoutType');
 
     if (dataOrLoadingChanged) {
       this._graphInteractionManager?.drawGraphIfReady();
@@ -354,6 +362,12 @@ export class MareesFranceCard extends LitElement implements CardInstanceForSetCo
     if (!this.hass || !this.config) return nothing;
     if (!this.config.device_id) {
       return html`<ha-card><div class="warning">${localizeCard('ui.card.marees_france.error_device_required', this.hass)}</div></ha-card>`;
+    }
+    if (!this.config.minDepthLayoutType) {
+      return html`<ha-card><div class="warning">${localizeCard('ui.card.marees_france.error_minDepthLayoutType_required', this.hass)}</div></ha-card>`;
+    }
+    if (!Object.values(MinDepthLayoutTypeValues).includes(this.config.minDepthLayoutType)) {
+      return html`<ha-card><div class="warning">${localizeCard('ui.card.marees_france.error_minDepthLayoutType_wrong', this.hass)}</div></ha-card>`;
     }
 
     // Type guard for tide data error

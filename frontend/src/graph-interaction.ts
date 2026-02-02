@@ -3,7 +3,8 @@ import {
   GetTidesDataResponseData,
   GetWaterLevelsResponseData,
   GetWaterTempResponseData,
-  GetHarborMinDepthResponseData
+  GetHarborMinDepthResponseData,
+  MinDepthLayoutType
 } from './types';
 import { GraphRenderer, TooltipDelegate } from './graph-renderer';
 
@@ -24,6 +25,7 @@ export interface CardInstanceForGraphManager {
   _isLoadingWater: boolean;
   _isLoadingTides: boolean;
   _isLoadingWaterTemp: boolean;
+  _minDepthLayoutType: MinDepthLayoutType;
   getBoundingClientRect: () => DOMRect;
   requestUpdate: (name?: PropertyKey, oldValue?: unknown) => void;
 }
@@ -104,6 +106,7 @@ export class GraphInteractionManager implements TooltipDelegate {
           waterTempDataValid ? (this.card._waterTempData as GetWaterTempResponseData) : null,
           this.card._selectedDay,
           harborMinDepthDataValid ? (this.card._harborMinDepth as GetHarborMinDepthResponseData) : null,
+          this.card._minDepthLayoutType,
         );
         this.graphRenderer.refreshDimensionsAndScale();
       } catch (e) {
@@ -169,7 +172,9 @@ export class GraphInteractionManager implements TooltipDelegate {
     if (!tooltip) return;
     tooltip.style.visibility = 'visible';
     tooltip.style.display = 'block';
+
     let content = `<strong>${time}</strong><br>${height} m`;
+
     if (waterTemp) {
       content += `<br>${waterTemp} °C`;
     }
